@@ -1,0 +1,21 @@
+version: "3"
+services:
+
+  tfcactus:
+    container_name: tfcactus
+    build: .
+    ports:
+      - 20000:8888
+      - 26006:6006
+    hostname: "tfcactus"
+    security_opt:
+      - seccomp:unconfined
+    volumes: 
+      - ../src:/home/jovyan/work
+    environment:
+      - PASSWORD=foobar
+      - JUPYTER_ENABLE_LAB=yes
+    deploy:
+      resources:
+        limits:
+          memory: 18G
