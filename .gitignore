@@ -1,0 +1,12 @@
+#ignore all kind of files
+*
+#except php files
+!*.py
+!*.ipynb
+!src
+!src/conv2d_mat_mul
+!src/drift
+!src/utils
+!src/ensembles
+!src/federated
+!.gitignore
