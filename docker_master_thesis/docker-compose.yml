@@ -1,8 +1,8 @@
 version: "3"
 services:
 
-  tfcactus:
-    container_name: tfcactus
+  master_thesis:
+    container_name: master_thesis
     build: .
     ports:
       - 20000:8888

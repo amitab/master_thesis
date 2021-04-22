@@ -2,7 +2,7 @@ FROM jupyter/tensorflow-notebook
 
 WORKDIR /home/jovyan/work
 
-RUN pip install keras imgaug
+RUN pip install keras imgaug torch tensorflow_addons
 
 ARG NB_USER="jovyan"
 ARG NB_UID="1000"

@@ -3,9 +3,13 @@
 #except php files
 !*.py
 !*.ipynb
-!src
+!*.yml
+!Dockerfile
+!src/
+!docker_master_thesis/
 !src/conv2d_mat_mul
 !src/drift
+!src/drift/Concept Drift (Data)
 !src/utils
 !src/ensembles
 !src/federated
