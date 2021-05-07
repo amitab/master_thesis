@@ -2,7 +2,7 @@ version: "3"
 services:
 
   master_thesis:
-    container_name: master_thesis
+    container_name: docker_master_thesis
     build: .
     ports:
       - 20000:8888

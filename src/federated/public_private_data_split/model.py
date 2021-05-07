@@ -35,7 +35,7 @@ assert test_data.max() == 1.
 
 shared_percent = 50 / 100
 shared_train_data_size = int(len(train_data) * shared_percent)
-num_models = 2
+num_models = 3
 
 shared_train_data = train_data[:shared_train_data_size]
 shared_train_labels = train_labels[:shared_train_data_size]

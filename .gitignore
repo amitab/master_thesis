@@ -13,4 +13,5 @@
 !src/utils
 !src/ensembles
 !src/federated
+!src/shareable_pages
 !.gitignore
