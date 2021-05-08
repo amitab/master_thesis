@@ -3,7 +3,10 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 
+from tqdm import tqdm
+
 import math
+
 
 def signature_bit(data, planes):
     """
@@ -62,14 +65,14 @@ def split_matrix(array, nrows, ncols):
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     ref_planes = np.random.randn(bits, dim)
-    s1_lsh = [signature_bit(x.flatten(), ref_planes) for x in s1]
-    s2_lsh = [signature_bit(x.flatten(), ref_planes) for x in s2]
+    s1_lsh = [signature_bit(x.flatten(), ref_planes) for x in tqdm(s1)]
+    s2_lsh = [signature_bit(x.flatten(), ref_planes) for x in tqdm(s2)]
     print("Complete lsh signature generation")
 
-    info = {t : {} for t in diff_thresholds}
-    num_per_block = s1[0].shape[0] * s1[0].shape[1] 
+    info = {t: {} for t in diff_thresholds}
+    num_per_block = s1[0].shape[0] * s1[0].shape[1]
 
-    for i in range(len(s1)):
+    for i in tqdm(range(len(s1))):
         sig1 = s1_lsh[i]
         for j in range(i + 1, len(s1)):
             assert s1[i].shape == s1[j].shape
@@ -82,7 +85,7 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
                     info[f][f's1-{i}'].append(f's1-{j}')
     print("Complete for s1")
 
-    for i in range(len(s2)):
+    for i in tqdm(range(len(s2))):
         sig1 = s2_lsh[i]
         for j in range(i + 1, len(s2)):
             assert s2[i].shape == s2[j].shape
@@ -95,7 +98,7 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
                     info[f][f's2-{i}'].append(f's2-{j}')
     print("Complete for s2")
 
-    for i, b1 in enumerate(s1):
+    for i, b1 in tqdm(enumerate(s1)):
         sig1 = s1_lsh[i]
         for j, b2 in enumerate(s2):
             assert b1.shape == b2.shape
@@ -108,7 +111,7 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
                     info[f][f's1-{i}'].append(f's2-{j}')
     print("Complete for s1-s2")
 
-    cons = {t : {} for t in diff_thresholds}
+    cons = {t: {} for t in diff_thresholds}
     for f in diff_thresholds:
         b_names = list(info[f].keys())
 
@@ -135,9 +138,11 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
         cons[f] = {
             # 'unique_bs': unique_bs,
             'total_blocks': (len(s1) + len(s2)),
-            'num_unique': len(unique_bs),
+            'num_unique':
+            len(unique_bs),
             'num_reduced': ((len(s1) + len(s2)) - len(unique_bs)),
-            'bytes_reduced': ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
+            'bytes_reduced':
+            ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
             'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
         }
 
@@ -145,13 +150,11 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
 
 
 def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
-    info = {
-        f: {t : {} for t in sim_thresholds} for f in fp_thresholds
-    }
+    info = {f: {t: {} for t in sim_thresholds} for f in fp_thresholds}
 
-    num_per_block = s1[0].shape[0] * s1[0].shape[1] 
+    num_per_block = s1[0].shape[0] * s1[0].shape[1]
 
-    for i in range(len(s1)):
+    for i in tqdm(range(len(s1))):
         for j in range(i + 1, len(s1)):
             assert s1[i].shape == s1[j].shape
             diff = np.absolute(s1[i] - s1[j])
@@ -163,10 +166,10 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
                         info[f][t][f's1-{i}'] = []
                     if d / tot >= t:
                         info[f][t][f's1-{i}'].append(f's1-{j}')
-                        
+
     print("Complete for s1")
 
-    for i in range(len(s2)):
+    for i in tqdm(range(len(s2))):
         for j in range(i + 1, len(s2)):
             assert s2[i].shape == s2[j].shape
             diff = np.absolute(s2[i] - s2[j])
@@ -181,7 +184,7 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
 
     print("Complete for s2")
 
-    for i, b1 in enumerate(s1):
+    for i, b1 in tqdm(enumerate(s1)):
         for j, b2 in enumerate(s2):
             assert b1.shape == b2.shape
             diff = np.absolute(b1 - b2)
@@ -195,9 +198,8 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
                         info[f][t][f's1-{i}'].append(f's2-{j}')
     print("Complete for s1-s2")
 
-    cons = {
-        f: {t : 0 for t in sim_thresholds} for f in fp_thresholds
-    }
+    print("Generating unique block counts...")
+    cons = {f: {t: 0 for t in sim_thresholds} for f in fp_thresholds}
     for f in fp_thresholds:
         for t in sim_thresholds:
             b_names = list(info[f][t].keys())
@@ -225,9 +227,11 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
             cons[f][t] = {
                 # 'unique_bs': unique_bs,
                 'total_blocks': (len(s1) + len(s2)),
-                'num_unique': len(unique_bs),
+                'num_unique':
+                len(unique_bs),
                 'num_reduced': ((len(s1) + len(s2)) - len(unique_bs)),
-                'bytes_reduced': ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
+                'bytes_reduced':
+                ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
                 'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
             }
 
@@ -246,7 +250,7 @@ def analyse_weights(w1, w2, thresholds, bx, by, bits=None):
     a = min(w1.shape[0], w2.shape[0])
     b = min(w1.shape[1], w2.shape[1])
 
-    diff = np.absolute(w1[:a,:b] - w2[:a,:b])
+    diff = np.absolute(w1[:a, :b] - w2[:a, :b])
     for f in fp_thresholds:
         d = np.count_nonzero(diff <= f)
         p = (d / (a * b)) * 100
@@ -264,7 +268,7 @@ def analyse_weights(w1, w2, thresholds, bx, by, bits=None):
         print("Comparing block sets")
         return compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
     elif 'diff' in thresholds:
-        # LSH comparision 
+        # LSH comparision
         diff_thresholds = thresholds['diff']
         assert dims != None
         assert bits != None
