@@ -147,7 +147,8 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
                     info[f][f's2-{i}'].append(f's2-{j}')
     print("Complete for s2")
 
-    for i, b1 in tqdm(enumerate(s1)):
+    pbar = tqdm(total=len(s1))
+    for i, b1 in enumerate(s1):
         sig1 = s1_lsh[i]
         for j, b2 in enumerate(s2):
             assert b1.shape == b2.shape
@@ -158,6 +159,7 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
                     info[f][f's1-{i}'] = []
                 if cosine_hash <= f:
                     info[f][f's1-{i}'].append(f's2-{j}')
+        pbar.update(1)
     print("Complete for s1-s2")
 
     cons = {t: {} for t in diff_thresholds}
@@ -233,7 +235,8 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
 
     print("Complete for s2")
 
-    for i, b1 in tqdm(enumerate(s1)):
+    pbar = tqdm(total=len(s1))
+    for i, b1 in enumerate(s1):
         for j, b2 in enumerate(s2):
             assert b1.shape == b2.shape
             diff = np.absolute(b1 - b2)
@@ -245,6 +248,7 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
                         info[f][t][f's1-{i}'] = []
                     if d / tot >= t:
                         info[f][t][f's1-{i}'].append(f's2-{j}')
+        pbar.update(1)
     print("Complete for s1-s2")
 
     print("Generating unique block counts...")
@@ -319,20 +323,19 @@ def analyse_weights(w1, w2, thresholds, bx, by, bits=None):
     elif 'diff' in thresholds:
         # LSH comparision
         diff_thresholds = thresholds['diff']
-        assert dims != None
         assert bits != None
         print("Comparing LSH")
         return compare_lsh_block_sets(s1, s2, diff_thresholds, bx * by, bits)
 
 
-def analyse_model_weights(m1, m2, thresholds):
+def analyse_model_weights(m1, m2, thresholds, weight_lower_bound=32):
     assert 'fp' in thresholds
     fp_thresholds = thresholds['fp']
 
     weights1 = [(l.name, layer_weight_transformer(l)) for l in m1.layers
-                if len(l.get_weights()) != 0]
+                if len(l.get_weights()) != 0 and (l.count_params() * 8) / 1e+6 >= weight_lower_bound]
     weights2 = [(l.name, layer_weight_transformer(l)) for l in m2.layers
-                if len(l.get_weights()) != 0]
+                if len(l.get_weights()) != 0 and (l.count_params() * 8) / 1e+6 >= weight_lower_bound]
 
     w_info = {}
     s1 = []
@@ -377,29 +380,29 @@ def analyse_model_weights(m1, m2, thresholds):
     return w_info
 
 
-def analyse_models(m1, m2, thresholds, bx, by, bits=None):
+def analyse_models(m1, m2, thresholds, bx, by, weight_lower_bound=32, bits=None):
     assert 'fp' in thresholds
     fp_thresholds = thresholds['fp']
 
     # all matrices get transformed to <= 2 dimensions
     # right now only conv2d layers can change to 2d
     weights1 = [
-        layer_weight_transformer(l) for l in m1.layers if len(l.weights) != 0
+        layer_weight_transformer(l) for l in m1.layers if len(l.weights) != 0 and (l.count_params() * 8) / 1e+6 >= weight_lower_bound
     ]
     weights2 = [
-        layer_weight_transformer(l) for l in m2.layers if len(l.weights) != 0
+        layer_weight_transformer(l) for l in m2.layers if len(l.weights) != 0 and (l.count_params() * 8) / 1e+6 >= weight_lower_bound
     ]
+
+    assert len(weights1) > 0 and len(weights2) > 0
 
     s1 = []
     s2 = []
 
-    # Even 1d vectors change to 2d blocks
-    # Because when calculating similarity between blocks, we can reshape for improving chances of similarity
     print("Starting Splitting")
-    for w1 in weights1:
+    for w1 in tqdm(weights1):
         s1.extend(split(w1, bx, by))
     print("Split m1")
-    for w2 in weights2:
+    for w2 in tqdm(weights2):
         s2.extend(split(w2, bx, by))
     print("Split m2")
 
@@ -417,30 +420,50 @@ def analyse_models(m1, m2, thresholds, bx, by, bits=None):
         return compare_lsh_block_sets(s1, s2, diff_thresholds, bx * by, bits)
 
 
-mnet = tf.keras.applications.MobileNet(input_shape=None,
-                                       alpha=1.0,
-                                       depth_multiplier=1,
-                                       dropout=0.001,
-                                       include_top=True,
-                                       weights="imagenet",
-                                       input_tensor=None,
-                                       pooling=None,
-                                       classes=1000,
-                                       classifier_activation="softmax")
+# mnet = tf.keras.applications.MobileNet(input_shape=None,
+#                                        alpha=1.0,
+#                                        depth_multiplier=1,
+#                                        dropout=0.001,
+#                                        include_top=True,
+#                                        weights="imagenet",
+#                                        input_tensor=None,
+#                                        pooling=None,
+#                                        classes=1000,
+#                                        classifier_activation="softmax")
 
-mnetv2 = tf.keras.applications.MobileNetV2(input_shape=None,
-                                           alpha=1.0,
-                                           include_top=True,
-                                           weights="imagenet",
-                                           input_tensor=None,
-                                           pooling=None,
-                                           classes=1000,
-                                           classifier_activation="softmax")
+# mnetv2 = tf.keras.applications.MobileNetV2(input_shape=None,
+#                                            alpha=1.0,
+#                                            include_top=True,
+#                                            weights="imagenet",
+#                                            input_tensor=None,
+#                                            pooling=None,
+#                                            classes=1000,
+#                                            classifier_activation="softmax")
+
+vgg16 = tf.keras.applications.VGG16(
+    include_top=True,
+    weights="imagenet",
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    classes=1000,
+    classifier_activation="softmax",
+)
+
+vgg19 = tf.keras.applications.VGG16(
+    include_top=True,
+    weights="imagenet",
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    classes=1000,
+    classifier_activation="softmax",
+)
 
 # print("Starting to read files")
-# w1 = np.loadtxt("vgg19_-3.np")
+# w1 = np.loadtxt("weights/vgg19_-3.np")
 # print("Read file 1")
-# w2 = np.loadtxt("vgg16_-3.np")
+# w2 = np.loadtxt("weights/vgg16_-3.np")
 # print("Read file 2")
 
 # print(
@@ -448,11 +471,11 @@ mnetv2 = tf.keras.applications.MobileNetV2(input_shape=None,
 #         w1, w2,
 #         {
 #             'fp': [0.01, 0.001], # for different floating point thresholds
-#             'sim': [.7, .8, .9], # for naive diff similarity percentage
-#             # 'diff': [.1, .2, .3], # for lsh difference
+#             # 'sim': [.7, .8, .9], # for naive diff similarity percentage
+#             'diff': [.1, .2, .3], # for lsh difference
 #         },
 #         500, 500 # block dims
-#         # , 2046 # bits
+#         , 512 # bits
 #     )
 # )
 
@@ -462,19 +485,21 @@ mnetv2 = tf.keras.applications.MobileNetV2(input_shape=None,
 #         mnetv2,
 #         {
 #             'fp': [0.01, 0.001],  # for different floating point thresholds
-#         }
+#         },
+#         32
 #     ))
 
 print(
     analyse_models(
-        mnet,
-        mnetv2,
+        vgg16,
+        vgg19,
         {
             'fp': [0.01, 0.001],  # for different floating point thresholds
-            # 'sim': [.7, .8, .9],  # for naive diff similarity percentage
-            'diff': [.1, .2, .3], # for lsh difference
+            'sim': [.7, .8, .9],  # for naive diff similarity percentage
+            # 'diff': [.1, .2, .3], # for lsh difference
         },
-        50,
-        50
-        , 512
+        500,
+        500,
+        32
+        # , 256
     ))
