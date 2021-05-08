@@ -62,70 +62,96 @@ def split_matrix(array, nrows, ncols):
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     ref_planes = np.random.randn(bits, dim)
+    s1_lsh = [signature_bit(x.flatten(), ref_planes) for x in s1]
+    s2_lsh = [signature_bit(x.flatten(), ref_planes) for x in s2]
+    print("Complete lsh signature generation")
 
-    info = {
-        's1': {k: 0
-               for k in diff_thresholds},
-        's2': {k: 0
-               for k in diff_thresholds},
-        's1-s2': {k: 0
-                  for k in diff_thresholds},
-    }
+    info = {t : {} for t in diff_thresholds}
+    num_per_block = s1[0].shape[0] * s1[0].shape[1] 
 
     for i in range(len(s1)):
-        sig1 = signature_bit(s1[i].flatten(), ref_planes)
+        sig1 = s1_lsh[i]
         for j in range(i + 1, len(s1)):
             assert s1[i].shape == s1[j].shape
-            sig2 = signature_bit(s1[j].flatten(), ref_planes)
+            sig2 = s1_lsh[j]
             cosine_hash = 1 - bitcount(sig1 ^ sig2) / bits
             for f in diff_thresholds:
+                if f's1-{i}' not in info[f]:
+                    info[f][f's1-{i}'] = []
                 if cosine_hash <= f:
-                    info['s1'][f] += 1
+                    info[f][f's1-{i}'].append(f's1-{j}')
     print("Complete for s1")
 
     for i in range(len(s2)):
-        sig1 = signature_bit(s2[i].flatten(), ref_planes)
+        sig1 = s2_lsh[i]
         for j in range(i + 1, len(s2)):
             assert s2[i].shape == s2[j].shape
-            sig2 = signature_bit(s2[j].flatten(), ref_planes)
+            sig2 = s2_lsh[j]
             cosine_hash = 1 - bitcount(sig1 ^ sig2) / bits
             for f in diff_thresholds:
+                if f's2-{i}' not in info[f]:
+                    info[f][f's2-{i}'] = []
                 if cosine_hash <= f:
-                    info['s2'][f] += 1
+                    info[f][f's2-{i}'].append(f's2-{j}')
     print("Complete for s2")
 
-    for b1 in s1:
-        sig1 = signature_bit(b1.flatten(), ref_planes)
-        for b2 in s2:
+    for i, b1 in enumerate(s1):
+        sig1 = s1_lsh[i]
+        for j, b2 in enumerate(s2):
             assert b1.shape == b2.shape
-            sig2 = signature_bit(b2.flatten(), ref_planes)
+            sig2 = s2_lsh[j]
             cosine_hash = 1 - bitcount(sig1 ^ sig2) / bits
             for f in diff_thresholds:
+                if f's1-{i}' not in info[f]:
+                    info[f][f's1-{i}'] = []
                 if cosine_hash <= f:
-                    info['s1-s2'][f] += 1
+                    info[f][f's1-{i}'].append(f's2-{j}')
     print("Complete for s1-s2")
 
-    return info
+    cons = {t : {} for t in diff_thresholds}
+    for f in diff_thresholds:
+        b_names = list(info[f].keys())
+
+        unique_bs = set()
+
+        for b_name in b_names:
+            if not b_name in info[f]:
+                continue
+            unique_bs.add(b_name)
+            pending_bs = set(info[f][b_name])
+            pending_bs.add(b_name)
+            del info[f][b_name]
+            temp_bs = set()
+            while pending_bs:
+                for similar_b in pending_bs:
+                    if not similar_b in info[f]:
+                        continue
+                    temp_bs.update(info[f][similar_b])
+                    del info[f][similar_b]
+
+                pending_bs = temp_bs
+                temp_bs = set()
+
+        cons[f] = {
+            # 'unique_bs': unique_bs,
+            'total_blocks': (len(s1) + len(s2)),
+            'num_unique': len(unique_bs),
+            'num_reduced': ((len(s1) + len(s2)) - len(unique_bs)),
+            'bytes_reduced': ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
+            'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
+        }
+
+    return cons
 
 
 def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
     info = {
-        's1': {f: {k: 0
-                   for k in sim_thresholds}
-               for f in fp_thresholds},
-        's2': {f: {k: 0
-                   for k in sim_thresholds}
-               for f in fp_thresholds},
-        's1-s2': {f: {k: 0
-                      for k in sim_thresholds}
-                  for f in fp_thresholds}
+        f: {t : {} for t in sim_thresholds} for f in fp_thresholds
     }
 
-    s1_sets = {}
+    num_per_block = s1[0].shape[0] * s1[0].shape[1] 
+
     for i in range(len(s1)):
-        s1_sets[i] = {f: {k: []
-                      for k in sim_thresholds}
-                  for f in fp_thresholds}
         for j in range(i + 1, len(s1)):
             assert s1[i].shape == s1[j].shape
             diff = np.absolute(s1[i] - s1[j])
@@ -133,18 +159,14 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
                 d = np.count_nonzero(diff <= f)
                 tot = s1[i].shape[0] * s1[i].shape[1]
                 for t in sim_thresholds:
+                    if f's1-{i}' not in info[f][t]:
+                        info[f][t][f's1-{i}'] = []
                     if d / tot >= t:
-                        info['s1'][f][t] += 1
-                        s1_sets[i][f][t].append(j)
+                        info[f][t][f's1-{i}'].append(f's1-{j}')
+                        
     print("Complete for s1")
-    import pdb
-    pdb.set_trace()
 
-    s2_sets = {}
     for i in range(len(s2)):
-        s2_sets[i] = {f: {k: []
-                      for k in sim_thresholds}
-                  for f in fp_thresholds}
         for j in range(i + 1, len(s2)):
             assert s2[i].shape == s2[j].shape
             diff = np.absolute(s2[i] - s2[j])
@@ -152,37 +174,92 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
                 d = np.count_nonzero(diff <= f)
                 tot = s2[i].shape[0] * s2[i].shape[1]
                 for t in sim_thresholds:
+                    if f's2-{i}' not in info[f][t]:
+                        info[f][t][f's2-{i}'] = []
                     if d / tot >= t:
-                        info['s2'][f][t] += 1
-                        s2_sets[i][f][t].append(j)
-    print("Complete for s2")
-    import pdb
-    pdb.set_trace()
+                        info[f][t][f's2-{i}'].append(f's2-{j}')
 
-    for b1 in s1:
-        for b2 in s2:
+    print("Complete for s2")
+
+    for i, b1 in enumerate(s1):
+        for j, b2 in enumerate(s2):
             assert b1.shape == b2.shape
             diff = np.absolute(b1 - b2)
             for f in fp_thresholds:
                 d = np.count_nonzero(diff <= f)
                 tot = b1.shape[0] * b2.shape[1]
                 for t in sim_thresholds:
+                    if f's1-{i}' not in info[f][t]:
+                        info[f][t][f's1-{i}'] = []
                     if d / tot >= t:
-                        info['s1-s2'][f][t] += 1
+                        info[f][t][f's1-{i}'].append(f's2-{j}')
     print("Complete for s1-s2")
 
-    return info
+    cons = {
+        f: {t : 0 for t in sim_thresholds} for f in fp_thresholds
+    }
+    for f in fp_thresholds:
+        for t in sim_thresholds:
+            b_names = list(info[f][t].keys())
+
+            unique_bs = set()
+
+            for b_name in b_names:
+                if not b_name in info[f][t]:
+                    continue
+                unique_bs.add(b_name)
+                pending_bs = set(info[f][t][b_name])
+                pending_bs.add(b_name)
+                del info[f][t][b_name]
+                temp_bs = set()
+                while pending_bs:
+                    for similar_b in pending_bs:
+                        if not similar_b in info[f][t]:
+                            continue
+                        temp_bs.update(info[f][t][similar_b])
+                        del info[f][t][similar_b]
+
+                    pending_bs = temp_bs
+                    temp_bs = set()
+
+            cons[f][t] = {
+                # 'unique_bs': unique_bs,
+                'total_blocks': (len(s1) + len(s2)),
+                'num_unique': len(unique_bs),
+                'num_reduced': ((len(s1) + len(s2)) - len(unique_bs)),
+                'bytes_reduced': ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
+                'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
+            }
+
+    return cons
 
 
 print("Starting to read files")
-w1 = np.loadtxt("vgg19_-1.np")
+w1 = np.loadtxt("vgg19_-3.np")
 print("Read file 1")
-w2 = np.loadtxt("resnet152_-1.np")
+w2 = np.loadtxt("vgg16_-3.np")
 print("Read file 2")
 
+a = min(w1.shape[0], w2.shape[0])
+b = min(w1.shape[1], w2.shape[1])
+
+diff = np.absolute(w1[:a,:b] - w2[:a,:b])
+d_a = np.count_nonzero(diff <= 0.01)
+d_b = np.count_nonzero(diff <= 0.001)
+
+a_p = (d_a / (a * b)) * 100
+b_p = (d_b / (a * b)) * 100
+
+print(f"For fp_threshold 0.01, similarity = {a_p}%")
+print(f"For fp_threshold 0.001, similarity = {b_p}%")
+
+print(f'W1 shape: {w1.shape[0]} x {w1.shape[1]}')
+print(f'W2 shape: {w2.shape[0]} x {w2.shape[1]}')
+
+
 print("Starting Splitting")
-bx = 100
-by = 100
+bx = 1000
+by = 1000
 s1 = split_matrix(w1, bx, by)
 print("Split w1")
 s2 = split_matrix(w2, bx, by)
@@ -190,5 +267,5 @@ print("Split w2")
 
 print("Comparing block sets")
 print(compare_block_sets(s1, s2, [.7, .8, .9], [0.01]))
-# print(compare_lsh_block_sets(s1, s2, [.1, .2, .3, .4, .5, .6, .7, .8, .9], bx * by, 1024))
+# print(compare_lsh_block_sets(s1, s2, [.1, .2, .3], bx * by, 2046))
 print("Done comparing block sets")
