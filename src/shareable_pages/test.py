@@ -6,45 +6,10 @@ from analyse_models import analyse_models
 from analyse_weights import analyse_weights
 
 
-# mnet = tf.keras.applications.MobileNet(input_shape=None,
-#                                        alpha=1.0,
-#                                        depth_multiplier=1,
-#                                        dropout=0.001,
-#                                        include_top=True,
-#                                        weights="imagenet",
-#                                        input_tensor=None,
-#                                        pooling=None,
-#                                        classes=1000,
-#                                        classifier_activation="softmax")
-
-# mnetv2 = tf.keras.applications.MobileNetV2(input_shape=None,
-#                                            alpha=1.0,
-#                                            include_top=True,
-#                                            weights="imagenet",
-#                                            input_tensor=None,
-#                                            pooling=None,
-#                                            classes=1000,
-#                                            classifier_activation="softmax")
-
-vgg16 = tf.keras.applications.VGG16(
-    include_top=True,
-    weights="imagenet",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    classes=1000,
-    classifier_activation="softmax",
-)
-
-vgg19 = tf.keras.applications.VGG16(
-    include_top=True,
-    weights="imagenet",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    classes=1000,
-    classifier_activation="softmax",
-)
+# mnet = tf.keras.applications.MobileNet()
+# mnetv2 = tf.keras.applications.MobileNetV2()
+vgg16 = tf.keras.applications.VGG16()
+vgg19 = tf.keras.applications.VGG19()
 
 # print("Starting to read files")
 # w1 = np.loadtxt("weights/vgg19_-3.np")
@@ -54,14 +19,14 @@ vgg19 = tf.keras.applications.VGG16(
 
 # print(
 #     analyse_weights(
-#         w1, w2,
+#         vgg16.layers[-3].weights[0].numpy(), vgg19.layers[-3].weights[0].numpy(),
 #         {
 #             'fp': [0.01, 0.001], # for different floating point thresholds
-#             # 'sim': [.7, .8, .9], # for naive diff similarity percentage
-#             'diff': [.1, .2, .3], # for lsh difference
+#             'sim': [.7, .8, .9], # for naive diff similarity percentage
+#             # 'diff': [.1, .2, .3], # for lsh difference
 #         },
 #         500, 500 # block dims
-#         , 512 # bits
+#         # , 512 # bits
 #     )
 # )
 
@@ -81,11 +46,11 @@ print(
         vgg19,
         {
             'fp': [0.01, 0.001],  # for different floating point thresholds
-            # 'sim': [.7, .8, .9],  # for naive diff similarity percentage
-            'diff': [.1, .2, .3], # for lsh difference
+            'sim': [.7, .8, .9],  # for naive diff similarity percentage
+            # 'diff': [.1, .2, .3], # for lsh difference
         },
         500,
         500,
         32
-        , 256
+        # , 256
     ))
