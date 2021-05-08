@@ -4,6 +4,7 @@
 !*.py
 !*.ipynb
 !*.yml
+!*.txt
 !Dockerfile
 !src/
 !docker_master_thesis/
