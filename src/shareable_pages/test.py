@@ -234,38 +234,60 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
     return cons
 
 
+def analyse_weights(w1, w2, thresholds, bx, by, bits=None):
+    assert len(w1.shape) == len(w2.shape) == 2
+
+    print(f'W1 shape: {w1.shape[0]} x {w1.shape[1]}')
+    print(f'W2 shape: {w2.shape[0]} x {w2.shape[1]}')
+
+    assert 'fp' in thresholds
+    fp_thresholds = thresholds['fp']
+
+    a = min(w1.shape[0], w2.shape[0])
+    b = min(w1.shape[1], w2.shape[1])
+
+    diff = np.absolute(w1[:a,:b] - w2[:a,:b])
+    for f in fp_thresholds:
+        d = np.count_nonzero(diff <= f)
+        p = (d / (a * b)) * 100
+        print(f"For fp_threshold {f}, similarity = {p}%")
+
+    print("Starting Splitting")
+    s1 = split_matrix(w1, bx, by)
+    print("Split w1")
+    s2 = split_matrix(w2, bx, by)
+    print("Split w2")
+
+    if 'sim' in thresholds:
+        # Compare blocks, naive
+        sim_thresholds = thresholds['sim']
+        print("Comparing block sets")
+        return compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
+    elif 'diff' in thresholds:
+        # LSH comparision 
+        diff_thresholds = thresholds['diff']
+        assert dims != None
+        assert bits != None
+        print("Comparing LSH")
+        return compare_lsh_block_sets(s1, s2, diff_thresholds, bx * by, bits)
+
+
 print("Starting to read files")
 w1 = np.loadtxt("vgg19_-3.np")
 print("Read file 1")
 w2 = np.loadtxt("vgg16_-3.np")
 print("Read file 2")
 
-a = min(w1.shape[0], w2.shape[0])
-b = min(w1.shape[1], w2.shape[1])
 
-diff = np.absolute(w1[:a,:b] - w2[:a,:b])
-d_a = np.count_nonzero(diff <= 0.01)
-d_b = np.count_nonzero(diff <= 0.001)
-
-a_p = (d_a / (a * b)) * 100
-b_p = (d_b / (a * b)) * 100
-
-print(f"For fp_threshold 0.01, similarity = {a_p}%")
-print(f"For fp_threshold 0.001, similarity = {b_p}%")
-
-print(f'W1 shape: {w1.shape[0]} x {w1.shape[1]}')
-print(f'W2 shape: {w2.shape[0]} x {w2.shape[1]}')
-
-
-print("Starting Splitting")
-bx = 1000
-by = 1000
-s1 = split_matrix(w1, bx, by)
-print("Split w1")
-s2 = split_matrix(w2, bx, by)
-print("Split w2")
-
-print("Comparing block sets")
-print(compare_block_sets(s1, s2, [.7, .8, .9], [0.01]))
-# print(compare_lsh_block_sets(s1, s2, [.1, .2, .3], bx * by, 2046))
-print("Done comparing block sets")
+print(
+    analyse_weights(
+        w1, w2,
+        {
+            'fp': [0.01, 0.001], # for different floating point thresholds
+            'sim': [.7, .8, .9], # for naive diff similarity percentage
+            # 'diff': [.1, .2, .3], # for lsh difference
+        },
+        500, 500 # block dims
+        # , 2046 # bits
+    )
+)
