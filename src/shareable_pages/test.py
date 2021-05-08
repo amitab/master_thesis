@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from analyse_model_weights import analyse_model_weights
-from analyse_models import analyse_models
+from analyse_models import analyse_models, analyse_models_v2
 from analyse_weights import analyse_weights
 
 

@@ -21,3 +21,7 @@ def layer_weight_transformer(layer):
             layer.weights[0].numpy())
     assert len(layer.weights[0].shape) <= 2
     return layer.weights[0].numpy()
+
+
+def layer_bytes(layer):
+    return (layer.count_params() * 8) / 1e+6
