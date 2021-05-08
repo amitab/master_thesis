@@ -63,6 +63,55 @@ def split_matrix(array, nrows, ncols):
     return ret
 
 
+# Memory Fusion from Multiple Neural Networks
+def conv2d_transformer(w):
+    dims = w.shape
+    if not len(dims) == 4:
+        import pdb
+        pdb.set_trace()
+    assert len(dims) == 4
+
+    return w.reshape(dims[0], dims[1] * dims[2] * dims[3])
+
+
+layer_weights_transformer_mapping = {'conv2d': conv2d_transformer}
+
+
+def layer_weight_transformer(layer):
+    if len(layer.weights[0].shape) == 4:
+        return layer_weights_transformer_mapping['conv2d'](
+            layer.weights[0].numpy())
+    if len(layer.weights[0].shape) > 2:
+        import pdb
+        pdb.set_trace()
+    assert len(layer.weights[0].shape) <= 2
+    return layer.weights[0].numpy()
+
+
+def split(array, nrows, ncols):
+    if len(array.shape) == 1:
+        return split_vector(array, nrows, ncols)
+    else:
+        return split_matrix(array, nrows, ncols)
+
+
+def split_vector(array, nrows, ncols):
+    assert len(array.shape) == 1
+    l = array.shape[0]
+    block_size = nrows * ncols
+    num_blocks = math.ceil(l / float(block_size))
+    if l % block_size != 0:
+        new_arr = np.zeros(num_blocks * block_size)
+        new_arr[:l] = array[:l]
+        array = new_arr
+    ret = np.hsplit(array, num_blocks)
+
+    assert len(ret) == num_blocks
+    assert isinstance(ret[0], np.ndarray)
+    # Returning 2 d array
+    return [x.reshape(nrows, ncols) for x in ret]
+
+
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     ref_planes = np.random.randn(bits, dim)
     s1_lsh = [signature_bit(x.flatten(), ref_planes) for x in tqdm(s1)]
@@ -276,22 +325,156 @@ def analyse_weights(w1, w2, thresholds, bx, by, bits=None):
         return compare_lsh_block_sets(s1, s2, diff_thresholds, bx * by, bits)
 
 
-print("Starting to read files")
-w1 = np.loadtxt("vgg19_-3.np")
-print("Read file 1")
-w2 = np.loadtxt("vgg16_-3.np")
-print("Read file 2")
+def analyse_model_weights(m1, m2, thresholds):
+    assert 'fp' in thresholds
+    fp_thresholds = thresholds['fp']
 
+    weights1 = [(l.name, layer_weight_transformer(l)) for l in m1.layers
+                if len(l.get_weights()) != 0]
+    weights2 = [(l.name, layer_weight_transformer(l)) for l in m2.layers
+                if len(l.get_weights()) != 0]
+
+    w_info = {}
+    s1 = []
+    s2 = []
+
+    for i, x in enumerate(weights1):
+        w1_name, w1 = x
+        w_info[f'w1{i}'] = {'shape': w1.shape, 'name': w1_name, 'vs': {}}
+        for j, y in enumerate(weights2):
+            w2_name, w2 = y
+            print(f"Comparing m1{i} ({w1_name}) with m2{j} ({w2_name})...")
+            w_info[f'w1{i}']['vs'][f'w2{j}'] = {}
+            data = w_info[f'w1{i}']['vs'][f'w2{j}']
+            data['shape'] = w2.shape
+            data['name'] = w2_name
+            data['match'] = {}
+
+            smol = None
+            big = None
+            k = None
+            l = None
+            if w1.flatten().shape[0] < w2.flatten().shape[0]:
+                smol = w1.flatten()
+                big = w2.flatten()
+                k = smol.shape[0]
+                l = big.shape[0]
+            else:
+                smol = w2.flatten()
+                big = w1.flatten()
+                k = smol.shape[0]
+                l = big.shape[0]
+
+            for f in fp_thresholds:
+                best_match = 0
+                for m in range(k, l):
+                    diff = np.absolute(smol - big[m - k:m])
+                    d = np.count_nonzero(diff <= f)
+                    best_match = max(d, best_match)
+                p = (best_match / k) * 100
+                data['match'][f] = p
+
+    return w_info
+
+
+def analyse_models(m1, m2, thresholds, bx, by, bits=None):
+    assert 'fp' in thresholds
+    fp_thresholds = thresholds['fp']
+
+    # all matrices get transformed to <= 2 dimensions
+    # right now only conv2d layers can change to 2d
+    weights1 = [
+        layer_weight_transformer(l) for l in m1.layers if len(l.weights) != 0
+    ]
+    weights2 = [
+        layer_weight_transformer(l) for l in m2.layers if len(l.weights) != 0
+    ]
+
+    s1 = []
+    s2 = []
+
+    # Even 1d vectors change to 2d blocks
+    # Because when calculating similarity between blocks, we can reshape for improving chances of similarity
+    print("Starting Splitting")
+    for w1 in weights1:
+        s1.extend(split(w1, bx, by))
+    print("Split m1")
+    for w2 in weights2:
+        s2.extend(split(w2, bx, by))
+    print("Split m2")
+
+    if 'sim' in thresholds:
+        # Compare blocks, naive
+        sim_thresholds = thresholds['sim']
+        print("Comparing block sets")
+        return compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
+    elif 'diff' in thresholds:
+        # LSH comparision
+        diff_thresholds = thresholds['diff']
+        dims = bx * by
+        assert bits != None
+        print("Comparing LSH")
+        return compare_lsh_block_sets(s1, s2, diff_thresholds, bx * by, bits)
+
+
+mnet = tf.keras.applications.MobileNet(input_shape=None,
+                                       alpha=1.0,
+                                       depth_multiplier=1,
+                                       dropout=0.001,
+                                       include_top=True,
+                                       weights="imagenet",
+                                       input_tensor=None,
+                                       pooling=None,
+                                       classes=1000,
+                                       classifier_activation="softmax")
+
+mnetv2 = tf.keras.applications.MobileNetV2(input_shape=None,
+                                           alpha=1.0,
+                                           include_top=True,
+                                           weights="imagenet",
+                                           input_tensor=None,
+                                           pooling=None,
+                                           classes=1000,
+                                           classifier_activation="softmax")
+
+# print("Starting to read files")
+# w1 = np.loadtxt("vgg19_-3.np")
+# print("Read file 1")
+# w2 = np.loadtxt("vgg16_-3.np")
+# print("Read file 2")
+
+# print(
+#     analyse_weights(
+#         w1, w2,
+#         {
+#             'fp': [0.01, 0.001], # for different floating point thresholds
+#             'sim': [.7, .8, .9], # for naive diff similarity percentage
+#             # 'diff': [.1, .2, .3], # for lsh difference
+#         },
+#         500, 500 # block dims
+#         # , 2046 # bits
+#     )
+# )
+
+# print(
+#     analyse_model_weights(
+#         mnet,
+#         mnetv2,
+#         {
+#             'fp': [0.01, 0.001],  # for different floating point thresholds
+#         }
+#     ))
 
 print(
-    analyse_weights(
-        w1, w2,
+    analyse_models(
+        mnet,
+        mnetv2,
         {
-            'fp': [0.01, 0.001], # for different floating point thresholds
-            'sim': [.7, .8, .9], # for naive diff similarity percentage
-            # 'diff': [.1, .2, .3], # for lsh difference
+            'fp': [0.01, 0.001],  # for different floating point thresholds
+            # 'sim': [.7, .8, .9],  # for naive diff similarity percentage
+            'diff': [.1, .2, .3], # for lsh difference
         },
-        500, 500 # block dims
-        # , 2046 # bits
-    )
-)
+        50,
+        50
+        , 512
+    ))
