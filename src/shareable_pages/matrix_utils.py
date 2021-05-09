@@ -22,7 +22,7 @@ class Block(object):
 
 
 class WeightBlocks(object):
-    def __init__(self, num_x_blocks, num_y_blocks, name, w_idx, is_vec):
+    def __init__(self, num_x_blocks, num_y_blocks, name, w_idx, og_shape, is_vec):
         self.num_x_blocks = num_x_blocks
         self.num_y_blocks = num_y_blocks
         self.name = name
@@ -30,6 +30,7 @@ class WeightBlocks(object):
         self.blocks = {}
         self.is_vec = is_vec
         self.set_size = num_x_blocks * num_y_blocks
+        self.og_shape = og_shape
 
         self.cur_i = 0
         self.cur_j = 0
@@ -64,6 +65,11 @@ class WeightBlocks(object):
         else:
             self.cur_j += 1
         return ret
+
+    def numpy(self):
+        rows = (np.hstack(list(self.blocks[i][j].block for j in range(self.num_y_blocks))) for i in range(self.num_x_blocks))
+        matrix = np.vstack(list(rows))
+        return matrix[:self.og_shape[0], :self.og_shape[1]]
 
 
 class ModelBlocks(object):
@@ -175,13 +181,13 @@ def split_vector(array, nrows, ncols, get_shape=False):
 def split_weight(array, nrows, ncols, name, w_idx):
     if len(array.shape) == 1:
         ret, shape = split_vector(array, nrows, ncols, True)
-        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, True)
+        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, array.shape, True)
         for i in range(shape[1]):
             wblocks.add_block(0, i, ret[i])
         return wblocks
     else:
         ret, shape = split_matrix(array, nrows, ncols, True)
-        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, False)
+        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, array.shape, False)
         for i in range(shape[0]):
             for j in range(shape[1]):
                 idx = i * shape[1] + j
