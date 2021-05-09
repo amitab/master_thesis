@@ -59,7 +59,7 @@ class WeightBlocks(object):
             raise StopIteration
 
         ret = self.blocks[self.cur_i][self.cur_j].block
-        if self.cur_j >= self.num_y_blocks:
+        if self.cur_j + 1 >= self.num_y_blocks:
             self.cur_i += 1
             self.cur_j = 0
         else:
@@ -100,19 +100,19 @@ class ModelBlocks(object):
 
     def __iter__(self):
         self.cur_w_idx = 0
-        if self.cur_w_idx <= len(self.idxs):
+        if self.cur_w_idx < len(self.idxs):
             self.cur_w = iter(self.weight_blocks[self.idxs[self.cur_w_idx]])
 
         return self
 
     def __next__(self):
-        while self.cur_w_idx <= len(self.idxs):
+        while self.cur_w_idx < len(self.idxs):
             try:
                 ret = next(self.cur_w)
                 return ret
             except StopIteration:
                 self.cur_w_idx += 1
-                if self.cur_w_idx <= len(self.idxs):
+                if self.cur_w_idx < len(self.idxs):
                     self.cur_w = iter(
                         self.weight_blocks[self.idxs[self.cur_w_idx]])
                 pass
@@ -208,3 +208,28 @@ def split_model(m, nrows, ncols, weight_lower_bound=32):
         b.add_weight(split_weight(w, nrows, ncols, name, idx), idx)
 
     return b
+
+
+# Test case
+if __name__ == "__main__":
+    m = tf.keras.applications.VGG16()
+    weight_lower_bound = 32
+    bx = 500
+    by = 500
+
+    weights = [
+        layer_weight_transformer(l) for l in m.layers
+        if len(l.weights) != 0 and layer_bytes(l) >= weight_lower_bound
+    ]
+
+    assert len(weights) > 0
+
+    sa = []
+    for w in tqdm(weights, desc="Splitting model into blocks"):
+        sa.extend(split(w, bx, by))
+
+    sb = split_model(m, bx, by, weight_lower_bound)
+
+    assert len(sa) == len(sb)
+    for i in range(len(sa)):
+        assert np.array_equal(sa[i], sb[i])
