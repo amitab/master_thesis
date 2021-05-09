@@ -19,7 +19,7 @@ def resolve_unique_mappings(mapping,
                             len_s1,
                             len_s2,
                             num_per_block,
-                            mode=UNIQUE_MAPPING_MODE.TRANSITIVE):
+                            mode=UNIQUE_MAPPING_MODE.SIMILARITY):
     if mode == UNIQUE_MAPPING_MODE.TRANSITIVE:
         b_names = list(mapping.keys())
 
@@ -62,8 +62,12 @@ def resolve_unique_mappings(mapping,
 
         for k, v in sorted_mappings:
             for dup in v:
-                if info[dup] is not None:
-                    info[dup] = k
+                try:
+                    if info[dup] is None:
+                        info[dup] = k
+                except:
+                    import pdb
+                    pdb.set_trace()
 
         unique_bs = [k for k in info if info[k] is None]
         unique_bs.extend([v for v in info.values() if v is not None])
@@ -129,6 +133,8 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
             for f in diff_thresholds:
                 if f's1-{i}' not in info[f]:
                     info[f][f's1-{i}'] = []
+                if f's2-{j}' not in info[f]:
+                    info[f][f's2-{j}'] = []
                 if cosine_hash <= f:
                     info[f][f's1-{i}'].append(f's2-{j}')
         pbar.update(1)
@@ -185,6 +191,8 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
                 for t in sim_thresholds:
                     if f's1-{i}' not in info[f][t]:
                         info[f][t][f's1-{i}'] = []
+                    if f's2-{j}' not in info[f][t]:
+                        info[f][t][f's2-{j}'] = []
                     if d / tot >= t:
                         info[f][t][f's1-{i}'].append(f's2-{j}')
         pbar.update(1)
