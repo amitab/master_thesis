@@ -48,7 +48,7 @@ def resolve_unique_mappings(mapping,
 
         return {
             # 'unique_bs': unique_bs,
-            # mappings: info,
+            'mappings': info,
             'total_blocks': (len_s1 + len_s2),
             'num_unique':
             len(unique_bs),
@@ -75,7 +75,7 @@ def resolve_unique_mappings(mapping,
 
         return {
             # 'unique_bs': unique_bs,
-            # mappings: info,
+            'mappings': info,
             'total_blocks': (len_s1 + len_s2),
             'num_unique':
             len(unique_bs),

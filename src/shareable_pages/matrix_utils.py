@@ -7,6 +7,12 @@ from tqdm import tqdm
 
 from tf_layer_helpers import layer_weight_transformer, layer_bytes
 
+import copy
+
+def idx_to_2d(num_y_blocks, idx):
+    i = math.floor(idx / num_y_blocks)
+    j = idx % num_y_blocks
+    return (i, j,)
 
 class Block(object):
     def __init__(self, block, i, j, num_x_blocks, num_y_blocks, name, w_idx,
@@ -45,9 +51,12 @@ class WeightBlocks(object):
                                   self.is_vec)
 
     def __getitem__(self, idx):
-        i = math.floor(idx / self.num_y_blocks)
-        j = idx % self.num_y_blocks
+        i, j = idx_to_2d(self.num_y_blocks, idx)
         return self.blocks[i][j].block
+
+    def __setitem__(self, idx, item):
+        i, j = idx_to_2d(self.num_y_blocks, idx)
+        self.blocks[i][j].block = item
 
     def __iter__(self):
         self.cur_i = 0
@@ -98,6 +107,11 @@ class ModelBlocks(object):
         b_idx = idx - start
         return self.weight_blocks[w_idx][b_idx]
 
+    def __setitem__(self, idx, item):
+        start, w_idx = self.block_ptrs[idx]
+        b_idx = idx - start
+        self.weight_blocks[w_idx][b_idx] = item
+
     def __iter__(self):
         self.cur_w_idx = 0
         if self.cur_w_idx < len(self.idxs):
@@ -118,6 +132,8 @@ class ModelBlocks(object):
                 pass
         raise StopIteration
 
+    def reconstruct(self):
+        return {idx: self.weight_blocks[idx].numpy() for idx in self.idxs}
 
 def split_matrix(array, nrows, ncols, get_shape=False):
     assert len(array.shape) == 2
@@ -208,6 +224,30 @@ def split_model(m, nrows, ncols, weight_lower_bound=32):
         b.add_weight(split_weight(w, nrows, ncols, name, idx), idx)
 
     return b
+
+def dedup_blocks(mapping, mb1, mb2):
+    omb1 = copy.deepcopy(mb1)
+    omb2 = copy.deepcopy(mb2)
+
+    for m in mapping:
+        if mapping[m] is not None and m.startswith('s1'):
+            a_set, idx_a = m.split('-')
+            idx_a = int(idx_a)
+            b_set, idx_b = mapping[m].split('-')
+            idx_b = int(idx_b)
+
+            omb1[idx_a] = omb1[idx_b] if b_set == a_set else omb2[idx_b]
+
+    for m in mapping:
+        if mapping[m] is not None and m.startswith('s2'):
+            a_set, idx_a = m.split('-')
+            idx_a = int(idx_a)
+            b_set, idx_b = mapping[m].split('-')
+            idx_b = int(idx_b)
+
+            omb2[idx_a] = omb2[idx_b] if b_set == a_set else omb1[idx_b]
+
+    return omb1, omb2
 
 
 # Test case

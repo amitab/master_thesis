@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from analyse_model_weights import analyse_model_weights
-from analyse_models import analyse_models, analyse_models_v2
+from analyse_models import analyse_models, analyse_models_v2, analyse_models_v2_and_dedup
 from analyse_weights import analyse_weights
 
 
@@ -40,8 +40,8 @@ vgg19 = tf.keras.applications.VGG19()
 #         32
 #     ))
 
-print(
-    analyse_models(
+data = \
+    analyse_models_v2_and_dedup(
         vgg16,
         vgg19,
         {
@@ -53,4 +53,7 @@ print(
         500,
         32
         # , 256
-    ))
+    )
+
+import pdb
+pdb.set_trace()
