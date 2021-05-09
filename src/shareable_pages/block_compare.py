@@ -9,11 +9,17 @@ from lsh import signature_bit, bitcount
 
 from enum import Enum
 
+
 class UNIQUE_MAPPING_MODE(Enum):
     SIMILARITY = 1
     TRANSITIVE = 2
 
-def resolve_unique_mappings(mapping, len_s1, len_s2, num_per_block, mode=UNIQUE_MAPPING_MODE.TRANSITIVE):
+
+def resolve_unique_mappings(mapping,
+                            len_s1,
+                            len_s2,
+                            num_per_block,
+                            mode=UNIQUE_MAPPING_MODE.TRANSITIVE):
     if mode == UNIQUE_MAPPING_MODE.TRANSITIVE:
         b_names = list(mapping.keys())
 
@@ -46,17 +52,45 @@ def resolve_unique_mappings(mapping, len_s1, len_s2, num_per_block, mode=UNIQUE_
             'bytes_reduced':
             ((len_s1 + len_s2) - len(unique_bs)) * num_per_block * 8,
             'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
-        }    
+        }
 
-    # elif mode == UNIQUE_MAPPING_MODE.SIMILARITY:
-        
+    elif mode == UNIQUE_MAPPING_MODE.SIMILARITY:
+        info = {k: None for k in mapping}
+        sorted_mappings = sorted([(k, v) for k, v in mapping.items()],
+                                 key=lambda x: len(x[1]),
+                                 reverse=True)
 
+        for k, v in sorted_mappings:
+            for dup in v:
+                if info[dup] is not None:
+                    info[dup] = k
+
+        unique_bs = [k for k in info if info[k] is None]
+        unique_bs.extend([v for v in info.values() if v is not None])
+        unique_bs = set(unique_bs)
+
+        return {
+            # 'unique_bs': unique_bs,
+            'total_blocks': (len_s1 + len_s2),
+            'num_unique':
+            len(unique_bs),
+            'num_reduced': ((len_s1 + len_s2) - len(unique_bs)),
+            'bytes_reduced':
+            ((len_s1 + len_s2) - len(unique_bs)) * num_per_block * 8,
+            'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
+        }
 
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     ref_planes = np.random.randn(bits, dim)
-    s1_lsh = [signature_bit(x.flatten(), ref_planes) for x in tqdm(s1, desc="Generating LSH signatures for set 1")]
-    s2_lsh = [signature_bit(x.flatten(), ref_planes) for x in tqdm(s2, desc="Generating LSH signatures for set 2")]
+    s1_lsh = [
+        signature_bit(x.flatten(), ref_planes)
+        for x in tqdm(s1, desc="Generating LSH signatures for set 1")
+    ]
+    s2_lsh = [
+        signature_bit(x.flatten(), ref_planes)
+        for x in tqdm(s2, desc="Generating LSH signatures for set 2")
+    ]
 
     info = {t: {} for t in diff_thresholds}
     num_per_block = s1[0].shape[0] * s1[0].shape[1]
@@ -102,7 +136,8 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     cons = {t: {} for t in diff_thresholds}
     pbar = tqdm(total=len(diff_thresholds), desc="Gathering results")
     for f in diff_thresholds:
-        cons[f] = resolve_unique_mappings(info[f], len(s1), len(s2), num_per_block)
+        cons[f] = resolve_unique_mappings(info[f], len(s1), len(s2),
+                                          num_per_block)
         pbar.update(1)
 
     return cons
@@ -158,7 +193,8 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
     pbar = tqdm(total=len(fp_thresholds), desc="Gathering results")
     for f in fp_thresholds:
         for t in sim_thresholds:
-            cons[f][t] = resolve_unique_mappings(info[f][t], len(s1), len(s2), num_per_block)
+            cons[f][t] = resolve_unique_mappings(info[f][t], len(s1), len(s2),
+                                                 num_per_block)
         pbar.update(1)
 
     return cons
