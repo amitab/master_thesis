@@ -23,6 +23,7 @@ def resolve_unique_mappings(mapping,
     if mode == UNIQUE_MAPPING_MODE.TRANSITIVE:
         b_names = list(mapping.keys())
 
+        info = {k: None for k in mapping.keys()}
         unique_bs = set()
 
         for b_name in b_names:
@@ -37,6 +38,8 @@ def resolve_unique_mappings(mapping,
                 for similar_b in pending_bs:
                     if not similar_b in mapping:
                         continue
+                    if info[similar_b] is None:
+                        info[similar_b] = b_name
                     temp_bs.update(mapping[similar_b])
                     del mapping[similar_b]
 
@@ -45,6 +48,7 @@ def resolve_unique_mappings(mapping,
 
         return {
             # 'unique_bs': unique_bs,
+            # mappings: info,
             'total_blocks': (len_s1 + len_s2),
             'num_unique':
             len(unique_bs),
@@ -62,12 +66,8 @@ def resolve_unique_mappings(mapping,
 
         for k, v in sorted_mappings:
             for dup in v:
-                try:
-                    if info[dup] is None:
-                        info[dup] = k
-                except:
-                    import pdb
-                    pdb.set_trace()
+                if info[dup] is None:
+                    info[dup] = k
 
         unique_bs = [k for k in info if info[k] is None]
         unique_bs.extend([v for v in info.values() if v is not None])
@@ -75,6 +75,7 @@ def resolve_unique_mappings(mapping,
 
         return {
             # 'unique_bs': unique_bs,
+            # mappings: info,
             'total_blocks': (len_s1 + len_s2),
             'num_unique':
             len(unique_bs),
