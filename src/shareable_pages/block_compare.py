@@ -7,6 +7,51 @@ import numpy as np
 from tqdm import tqdm
 from lsh import signature_bit, bitcount
 
+from enum import Enum
+
+class UNIQUE_MAPPING_MODE(Enum):
+    SIMILARITY = 1
+    TRANSITIVE = 2
+
+def resolve_unique_mappings(mapping, len_s1, len_s2, num_per_block, mode=UNIQUE_MAPPING_MODE.TRANSITIVE):
+    if mode == UNIQUE_MAPPING_MODE.TRANSITIVE:
+        b_names = list(mapping.keys())
+
+        unique_bs = set()
+
+        for b_name in b_names:
+            if not b_name in mapping:
+                continue
+            unique_bs.add(b_name)
+            pending_bs = set(mapping[b_name])
+            pending_bs.add(b_name)
+            del mapping[b_name]
+            temp_bs = set()
+            while pending_bs:
+                for similar_b in pending_bs:
+                    if not similar_b in mapping:
+                        continue
+                    temp_bs.update(mapping[similar_b])
+                    del mapping[similar_b]
+
+                pending_bs = temp_bs
+                temp_bs = set()
+
+        return {
+            # 'unique_bs': unique_bs,
+            'total_blocks': (len_s1 + len_s2),
+            'num_unique':
+            len(unique_bs),
+            'num_reduced': ((len_s1 + len_s2) - len(unique_bs)),
+            'bytes_reduced':
+            ((len_s1 + len_s2) - len(unique_bs)) * num_per_block * 8,
+            'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
+        }    
+
+    # elif mode == UNIQUE_MAPPING_MODE.SIMILARITY:
+        
+
+
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     ref_planes = np.random.randn(bits, dim)
@@ -57,38 +102,7 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     cons = {t: {} for t in diff_thresholds}
     pbar = tqdm(total=len(diff_thresholds), desc="Gathering results")
     for f in diff_thresholds:
-        b_names = list(info[f].keys())
-
-        unique_bs = set()
-
-        for b_name in b_names:
-            if not b_name in info[f]:
-                continue
-            unique_bs.add(b_name)
-            pending_bs = set(info[f][b_name])
-            pending_bs.add(b_name)
-            del info[f][b_name]
-            temp_bs = set()
-            while pending_bs:
-                for similar_b in pending_bs:
-                    if not similar_b in info[f]:
-                        continue
-                    temp_bs.update(info[f][similar_b])
-                    del info[f][similar_b]
-
-                pending_bs = temp_bs
-                temp_bs = set()
-
-        cons[f] = {
-            # 'unique_bs': unique_bs,
-            'total_blocks': (len(s1) + len(s2)),
-            'num_unique':
-            len(unique_bs),
-            'num_reduced': ((len(s1) + len(s2)) - len(unique_bs)),
-            'bytes_reduced':
-            ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
-            'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
-        }
+        cons[f] = resolve_unique_mappings(info[f], len(s1), len(s2), num_per_block)
         pbar.update(1)
 
     return cons
@@ -144,38 +158,7 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
     pbar = tqdm(total=len(fp_thresholds), desc="Gathering results")
     for f in fp_thresholds:
         for t in sim_thresholds:
-            b_names = list(info[f][t].keys())
-
-            unique_bs = set()
-
-            for b_name in b_names:
-                if not b_name in info[f][t]:
-                    continue
-                unique_bs.add(b_name)
-                pending_bs = set(info[f][t][b_name])
-                pending_bs.add(b_name)
-                del info[f][t][b_name]
-                temp_bs = set()
-                while pending_bs:
-                    for similar_b in pending_bs:
-                        if not similar_b in info[f][t]:
-                            continue
-                        temp_bs.update(info[f][t][similar_b])
-                        del info[f][t][similar_b]
-
-                    pending_bs = temp_bs
-                    temp_bs = set()
-
-            cons[f][t] = {
-                # 'unique_bs': unique_bs,
-                'total_blocks': (len(s1) + len(s2)),
-                'num_unique':
-                len(unique_bs),
-                'num_reduced': ((len(s1) + len(s2)) - len(unique_bs)),
-                'bytes_reduced':
-                ((len(s1) + len(s2)) - len(unique_bs)) * num_per_block * 8,
-                'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
-            }
+            cons[f][t] = resolve_unique_mappings(info[f][t], len(s1), len(s2), num_per_block)
         pbar.update(1)
 
     return cons
