@@ -100,11 +100,11 @@ def analyse_models_v2_and_dedup(m1,
 
     if sim_thresholds is not None:
         block_compare = True
-        key = f"{m1.name}_{m2.name}_{'.'.join([str(x) for x in sim_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
+        key = f"{m1.name}_{m2.name}_{weight_lower_bound}_{'.'.join([str(x) for x in sim_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
         split_cache_file = f"cache/block_analysis_{key}.p"
     else:
         assert diff_thresholds is not None
-        key = f"{m1.name}_{m2.name}_{'.'.join([str(x) for x in diff_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
+        key = f"{m1.name}_{m2.name}_{weight_lower_bound}_{'.'.join([str(x) for x in diff_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
         split_cache_file = f"cache/lsh_analysis_{key}.p"
 
     analysis = None
