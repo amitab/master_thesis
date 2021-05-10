@@ -40,7 +40,7 @@ vgg19 = tf.keras.applications.VGG19()
 #         32
 #     ))
 
-data = \
+print(
     analyse_models_v2_and_dedup(
         vgg16,
         vgg19,
@@ -51,9 +51,7 @@ data = \
         },
         500,
         500,
+        "./",
         32
         # , 256
-    )
-
-import pdb
-pdb.set_trace()
+    ))

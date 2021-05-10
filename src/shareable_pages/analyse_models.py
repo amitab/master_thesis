@@ -7,6 +7,9 @@ from tf_layer_helpers import layer_weight_transformer, layer_bytes
 from tqdm import tqdm
 
 import copy
+import time
+import pickle
+from pathlib import Path
 
 def analyse_models(m1,
                    m2,
@@ -85,49 +88,66 @@ def analyse_models_v2_and_dedup(m1,
                    thresholds,
                    bx,
                    by,
-                   m1_test_fn,
-                   m2_test_fn,
+                   save_path,
                    weight_lower_bound=32,
                    bits=None):
     assert 'fp' in thresholds
     fp_thresholds = thresholds['fp']
+    sim_thresholds = thresholds.get('sim', None)
+    diff_thresholds = thresholds.get('diff', None)
+
+    block_compare = False
+
+    if sim_thresholds is not None:
+        block_compare = True
+        key = f"{m1.name}_{m2.name}_{'.'.join([str(x) for x in sim_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
+        split_cache_file = f"cache/block_analysis_{key}.p"
+    else:
+        assert diff_thresholds is not None
+        key = f"{m1.name}_{m2.name}_{'.'.join([str(x) for x in diff_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
+        split_cache_file = f"cache/lsh_analysis_{key}.p"
+
+    analysis = None
+    if Path(split_cache_file).is_file():
+        analysis = pickle.load(open(split_cache_file, "rb"))
 
     s1 = split_model(m1, bx, by, weight_lower_bound)
     s2 = split_model(m2, bx, by, weight_lower_bound)
 
-    m1_acc = m1_test_fn(m1)
-    m2_acc = m2_test_fn(m2)
-
-    if 'sim' in thresholds:
+    if block_compare:
         # Compare blocks, naive
-        sim_thresholds = thresholds['sim']
         print("Comparing block sets...")
-        analysis = compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
 
+        if analysis is None:
+            analysis = compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
+            pickle.dump(analysis, open(split_cache_file, "wb"))
+
+        pbar = tqdm(total=len(fp_thresholds) * len(sim_thresholds), desc="Dumping deduplicated model pairs")
         for f in fp_thresholds:
             for t in sim_thresholds:
-                dm1, dm2 = copy.deepcopy(m1), copy.deepcopy(m2)
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
                 r1 = d1.reconstruct()
+                bak1 = {r: m1.layers[r].get_weights() for r in r1.keys()}
                 for r in r1:
-                    w = m1.layers[r].weights
+                    w = m1.layers[r].get_weights()
                     w[0] = r1[r]
-                    dm1.layers[r].set_weights(w)
+                    m1.layers[r].set_weights(w)
                 r2 = d2.reconstruct()
+                bak2 = {r: m2.layers[r].get_weights() for r in r2.keys()}
                 for r in r2:
-                    w = m2.layers[r].weights
+                    w = m2.layers[r].get_weights()
                     w[0] = r2[r]
-                    dm2.layers[r].set_weights(w)
+                    m2.layers[r].set_weights(w)
 
-                analysis[f][t]['m1_og_acc'] = m1_acc
-                analysis[f][t]['m2_og_acc'] = m2_acc
-                analysis[f][t]['m1_de_acc'] = m1_test_fn(dm1)
-                analysis[f][t]['m2_de_acc'] = m1_test_fn(dm2)
+                m1.save(f"{save_path}/models/{m1.name}_{f}_{t}")
+                m2.save(f"{save_path}/models/{m2.name}_{f}_{t}")
 
-                del dm1
-                del dm2
-                del d1
-                del d2
+                for k in bak1:
+                    m1.layers[k].set_weights(bak1[k])
+                for k in bak2:
+                    m2.layers[k].set_weights(bak2[k])
+
+                pbar.update(1)
 
 
     elif 'diff' in thresholds:
