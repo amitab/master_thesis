@@ -97,14 +97,15 @@ def analyse_models_v2_and_dedup(m1,
     diff_thresholds = thresholds.get('diff', None)
 
     block_compare = False
+    print(f"Splitting model layers with size > {weight_lower_bound} MB into blocks of size {bx} X {by} and computing similarity across blocks")
 
     if sim_thresholds is not None:
         block_compare = True
-        key = f"{m1.name}_{m2.name}_{weight_lower_bound}_{'.'.join([str(x) for x in sim_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
+        key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{'.'.join([str(x) for x in sim_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
         split_cache_file = f"cache/block_analysis_{key}.p"
     else:
         assert diff_thresholds is not None
-        key = f"{m1.name}_{m2.name}_{weight_lower_bound}_{'.'.join([str(x) for x in diff_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
+        key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{'.'.join([str(x) for x in diff_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
         split_cache_file = f"cache/lsh_analysis_{key}.p"
 
     analysis = None
@@ -135,7 +136,7 @@ def analyse_models_v2_and_dedup(m1,
                     w[0] = r
                     m1.layers[idx].set_weights(w)
 
-                m1.save(f"{save_path}/models/{m1.name}_{f}_{t}_{weight_lower_bound}")
+                m1.save(f"{save_path}/models/{m1.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
                 for k in bak:
                     m1.layers[k].set_weights(bak[k])
                 bak.clear()
@@ -146,7 +147,7 @@ def analyse_models_v2_and_dedup(m1,
                     w[0] = r
                     m2.layers[idx].set_weights(w)
 
-                m2.save(f"{save_path}/models/{m2.name}_{f}_{t}_{weight_lower_bound}")
+                m2.save(f"{save_path}/models/{m2.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
                 for k in bak:
                     m2.layers[k].set_weights(bak[k])
                 bak.clear()

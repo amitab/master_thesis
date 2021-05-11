@@ -149,54 +149,186 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
 
     return cons
 
+def compare_block_pairs(b1, b2, fp_thresholds):
+    diff = np.absolute(b1 - b2)
+    return [np.count_nonzero(diff <= f) for f in fp_thresholds]
+
+import multiprocessing
 
 def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
     info = {f: {t: {} for t in sim_thresholds} for f in fp_thresholds}
 
     num_per_block = s1[0].shape[0] * s1[0].shape[1]
 
-    for i in tqdm(range(len(s1)), desc="Deduplicating Set 1"):
-        for j in range(i + 1, len(s1)):
-            assert s1[i].shape == s1[j].shape
-            diff = np.absolute(s1[i] - s1[j])
-            for f in fp_thresholds:
-                d = np.count_nonzero(diff <= f)
-                tot = s1[i].shape[0] * s1[i].shape[1]
-                for t in sim_thresholds:
-                    if f's1-{i}' not in info[f][t]:
-                        info[f][t][f's1-{i}'] = []
-                    if d / tot >= t:
-                        info[f][t][f's1-{i}'].append(f's1-{j}')
+    ###################
+    ## MULTI PROCESS ##
+    ###################
 
-    for i in tqdm(range(len(s2)), desc="Deduplicating Set 2"):
-        for j in range(i + 1, len(s2)):
-            assert s2[i].shape == s2[j].shape
-            diff = np.absolute(s2[i] - s2[j])
-            for f in fp_thresholds:
-                d = np.count_nonzero(diff <= f)
-                tot = s2[i].shape[0] * s2[i].shape[1]
-                for t in sim_thresholds:
-                    if f's2-{i}' not in info[f][t]:
-                        info[f][t][f's2-{i}'] = []
-                    if d / tot >= t:
-                        info[f][t][f's2-{i}'].append(f's2-{j}')
+    # q = multiprocessing.Queue()
+    # pq = multiprocessing.Queue()
 
-    pbar = tqdm(total=len(s1), desc="Deduplicating Set 1 and Set 2")
-    for i, b1 in enumerate(s1):
-        for j, b2 in enumerate(s2):
-            assert b1.shape == b2.shape
-            diff = np.absolute(b1 - b2)
-            for f in fp_thresholds:
-                d = np.count_nonzero(diff <= f)
-                tot = b1.shape[0] * b2.shape[1]
-                for t in sim_thresholds:
-                    if f's1-{i}' not in info[f][t]:
-                        info[f][t][f's1-{i}'] = []
-                    if f's2-{j}' not in info[f][t]:
-                        info[f][t][f's2-{j}'] = []
-                    if d / tot >= t:
-                        info[f][t][f's1-{i}'].append(f's2-{j}')
-        pbar.update(1)
+    # def monitor(pq, t):
+    #     pbar = tqdm(total = (len(s1) * (len(s1) - 1)) / 2 + (len(s2) * (len(s2) - 1)) / 2 + len(s1) * len(s2), desc="Deduplicating Sets")
+    #     while pq.get() == 1:
+    #         pbar.update(1)
+
+    # def compare_blocks(b1, b2, fp_thresholds, pq):
+    #     diff = np.absolute(b1 - b2)
+    #     ret = [np.count_nonzero(diff <= f) for f in fp_thresholds]
+    #     pq.put(1)
+    #     return ret
+
+    # def doit(a, b, c, d, q, pq):
+    #     q.put({ f"s1-{i}":
+    #         { f"s1-{j}":
+    #             compare_blocks(s1[i], s1[j], fp_thresholds, pq) for j in range(i + 1, len(s1))
+    #         } for i in range(a, b)
+    #     })
+    #     q.put({ f"s2-{i}":
+    #         { f"s2-{j}":
+    #             compare_blocks(s2[i], s2[j], fp_thresholds, pq) for j in range(i + 1, len(s2))
+    #         } for i in range(c, d)
+    #     })
+    #     q.put({ f"s1-{i}":
+    #         { f"s2-{j}":
+    #             compare_blocks(s1[i], s2[j], fp_thresholds, pq) for j in range(len(s2))
+    #         } for i in range(a, b)
+    #     })
+
+    # def process_op(data):
+    #     for a in data:
+    #         for b in data[a]:
+    #             for l, f in enumerate(fp_thresholds):
+    #                 d = data[a][b][l]
+    #                 for t in sim_thresholds:
+    #                     if a not in info[f][t]:
+    #                         info[f][t][a] = []
+    #                     if d / num_per_block >= t:
+    #                         info[f][t][a].append(b)
+
+    # num_processes = 2
+    # splits_s1 = [i * int(len(s1) / num_processes) for i in range(num_processes)] + [len(s1)]
+    # splits_s2 = [i * int(len(s2) / num_processes) for i in range(num_processes)] + [len(s2)]
+
+    # ps = [
+    #     multiprocessing.Process(target=doit, args=(splits_s1[i], splits_s1[i+1], splits_s2[i], splits_s2[i+1], q, pq), name=1)
+    #     for i in range(num_processes)
+    # ]
+
+    # mon_proc = multiprocessing.Process(target=monitor, args=(pq, 1), name=1)
+    # mon_proc.start()
+
+    # for p in ps:
+    #     p.start()
+
+    # for _ in range(num_processes * 3):
+    #     process_op(q.get())
+
+    # for f in fp_thresholds:
+    #     for t in sim_thresholds:
+    #         info[f][t][f's2-{len(s2) - 1}'] = []
+
+    # pq.put(None)
+
+    # q.close()
+    # q.join_thread()
+
+    # pq.close()
+    # pq.join_thread()
+
+    # for p in ps:
+    #     p.join()
+    
+    # mon_proc.join()
+
+
+    #####################
+    ## ORIGINAL METHOD ##
+    #####################
+
+    # for i in tqdm(range(len(s1)), desc="Deduplicating Set 1"):
+    #     for j in range(i + 1, len(s1)):
+    #         assert s1[i].shape == s1[j].shape
+    #         diff = np.absolute(s1[i] - s1[j])
+    #         for f in fp_thresholds:
+    #             d = np.count_nonzero(diff <= f)
+    #             tot = s1[i].shape[0] * s1[i].shape[1]
+    #             for t in sim_thresholds:
+    #                 if f's1-{i}' not in info[f][t]:
+    #                     info[f][t][f's1-{i}'] = []
+    #                 if d / tot >= t:
+    #                     info[f][t][f's1-{i}'].append(f's1-{j}')
+
+    # for i in tqdm(range(len(s2)), desc="Deduplicating Set 2"):
+    #     for j in range(i + 1, len(s2)):
+    #         assert s2[i].shape == s2[j].shape
+    #         diff = np.absolute(s2[i] - s2[j])
+    #         for f in fp_thresholds:
+    #             d = np.count_nonzero(diff <= f)
+    #             tot = s2[i].shape[0] * s2[i].shape[1]
+    #             for t in sim_thresholds:
+    #                 if f's2-{i}' not in info[f][t]:
+    #                     info[f][t][f's2-{i}'] = []
+    #                 if d / tot >= t:
+    #                     info[f][t][f's2-{i}'].append(f's2-{j}')
+
+    # pbar = tqdm(total=len(s1), desc="Deduplicating Set 1 and Set 2")
+    # for i, b1 in enumerate(s1):
+    #     for j, b2 in enumerate(s2):
+    #         assert b1.shape == b2.shape
+    #         diff = np.absolute(b1 - b2)
+    #         for f in fp_thresholds:
+    #             d = np.count_nonzero(diff <= f)
+    #             tot = b1.shape[0] * b2.shape[1]
+    #             for t in sim_thresholds:
+    #                 if f's1-{i}' not in info[f][t]:
+    #                     info[f][t][f's1-{i}'] = []
+    #                 # if f's2-{j}' not in info[f][t]:
+    #                 #     info[f][t][f's2-{j}'] = []
+    #                 if d / tot >= t:
+    #                     info[f][t][f's1-{i}'].append(f's2-{j}')
+    #     pbar.update(1)
+
+    ####################
+    ## COMPREHENSIONS ##
+    ####################
+
+    def process_op(data):
+        for a in data:
+            for b in data[a]:
+                for l, f in enumerate(fp_thresholds):
+                    d = data[a][b][l]
+                    for t in sim_thresholds:
+                        if a not in info[f][t]:
+                            info[f][t][a] = []
+                        if d / num_per_block >= t:
+                            info[f][t][a].append(b)
+
+    a = { f"s1-{i}":
+        { f"s1-{j}":
+            compare_block_pairs(s1[i], s1[j], fp_thresholds) for j in range(i + 1, len(s1))
+        } for i in tqdm(range(len(s1)), desc="Dedup S1")
+    }
+    process_op(a)
+    b = { f"s2-{i}":
+        { f"s2-{j}":
+            compare_block_pairs(s2[i], s2[j], fp_thresholds) for j in range(i + 1, len(s2))
+        } for i in tqdm(range(len(s2)), desc="Dedup S2")
+    }
+    process_op(b)
+    c = { f"s1-{i}":
+        { f"s2-{j}":
+            compare_block_pairs(s1[i], s2[j], fp_thresholds) for j in range(len(s2))
+        } for i in tqdm(range(len(s1)), desc="Dedup S1 and S2")
+    }
+    process_op(c)
+
+    for f in fp_thresholds:
+        for t in sim_thresholds:
+            info[f][t][f's2-{len(s2) - 1}'] = []
+
+    # import pdb
+    # pdb.set_trace()
 
     cons = {f: {t: 0 for t in sim_thresholds} for f in fp_thresholds}
     pbar = tqdm(total=len(fp_thresholds), desc="Gathering results")
@@ -205,5 +337,8 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
             cons[f][t] = resolve_unique_mappings(info[f][t], len(s1), len(s2),
                                                  num_per_block)
         pbar.update(1)
+
+    # import pdb
+    # pdb.set_trace()
 
     return cons

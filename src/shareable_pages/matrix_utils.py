@@ -40,6 +40,7 @@ class WeightBlocks(object):
         self.name = name
         self.w_idx = w_idx
         self.blocks = {}
+        # self.all_blocks = []
         self.is_vec = is_vec
         self.set_size = num_x_blocks * num_y_blocks
         self.og_shape = og_shape
@@ -55,6 +56,7 @@ class WeightBlocks(object):
         self.blocks[i][j] = Block(block, i, j, self.num_x_blocks,
                                   self.num_y_blocks, self.name, self.w_idx,
                                   self.is_vec)
+        # self.all_blocks.append(block)
 
     def __getitem__(self, idx):
         i, j = idx_to_2d(self.num_y_blocks, idx)
@@ -94,14 +96,19 @@ class ModelBlocks(object):
         self.weight_blocks = {}
         self.idxs = []
         self.block_ptrs = {}
+        # self.all_blocks = []
 
         self.cur_w_idx = 0
         self.cur_w = None
 
         self.set_size = 0
 
+    # def finalize(self):
+    #     self.all_blocks = np.array(self.all_blocks)
+
     def add_weight(self, weight, idx):
         self.weight_blocks[idx] = weight
+        # self.all_blocks.extend(weight.all_blocks)
         self.idxs.append(idx)
 
         self.block_ptrs.update({
@@ -283,6 +290,7 @@ def split_model(m, nrows, ncols, weight_lower_bound=32):
             split_weight(layer_weight_transformer(l), nrows, ncols, l.name,
                          idx), idx)
 
+    # b.finalize()
     return b
 
 
