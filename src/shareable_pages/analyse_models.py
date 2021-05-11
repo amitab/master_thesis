@@ -133,7 +133,8 @@ def analyse_models_v2_and_dedup(m1,
                 for idx, r in d1.reconstruct():
                     bak[idx] = m1.layers[idx].get_weights()
                     w = m1.layers[idx].get_weights()
-                    w[0] = r
+                    shape = w[0].shape
+                    w[0] = r.reshape(*shape)
                     m1.layers[idx].set_weights(w)
 
                 m1.save(f"{save_path}/models/{m1.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
@@ -144,7 +145,8 @@ def analyse_models_v2_and_dedup(m1,
                 for idx, r in d2.reconstruct():
                     bak[idx] = m2.layers[idx].get_weights()
                     w = m2.layers[idx].get_weights()
-                    w[0] = r
+                    shape = w[0].shape
+                    w[0] = r.reshape(*shape)
                     m2.layers[idx].set_weights(w)
 
                 m2.save(f"{save_path}/models/{m2.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")

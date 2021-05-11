@@ -34,7 +34,7 @@ class Block(object):
 
 class WeightBlocks(object):
     def __init__(self, num_x_blocks, num_y_blocks, name, w_idx, og_shape,
-                 is_vec):
+                 is_vec, reshape=None):
         self.num_x_blocks = num_x_blocks
         self.num_y_blocks = num_y_blocks
         self.name = name
@@ -44,6 +44,7 @@ class WeightBlocks(object):
         self.is_vec = is_vec
         self.set_size = num_x_blocks * num_y_blocks
         self.og_shape = og_shape
+        self.reshape = reshape
 
         self.cur_i = 0
         self.cur_j = 0
@@ -88,7 +89,14 @@ class WeightBlocks(object):
             list(self.blocks[i][j].block for j in range(self.num_y_blocks)))
                 for i in range(self.num_x_blocks))
         matrix = np.vstack(list(rows))
-        return matrix[:self.og_shape[0], :self.og_shape[1]]
+        matrix = matrix[:self.og_shape[0], :self.og_shape[1]]
+
+        if self.reshape is not None:
+            # import pdb
+            # pdb.set_trace()
+            matrix.reshape(self.reshape)
+        
+        return matrix
 
 
 class ModelBlocks(object):
@@ -153,6 +161,54 @@ class ModelBlocks(object):
     def reconstruct(self):
         for idx in self.idxs:
             yield idx, self.weight_blocks[idx].numpy()
+
+def get_prime_factors(number):
+    prime_factors = []
+
+    while number % 2 == 0:
+        prime_factors.append(2)
+        number = number / 2
+
+    for i in range(3, int(math.sqrt(number)) + 1, 2):
+        while number % i == 0:
+            prime_factors.append(int(i))
+            number = number / i
+    if number > 2:
+        prime_factors.append(int(number))
+
+    return prime_factors
+
+
+def split_matrix_even(array, nrows, ncols, get_shape=False):
+    r, h = array.shape
+    if (r < nrows and h < ncols) or (r > nrows and h > ncols):
+        if get_shape:
+            ret, shape = split_matrix(array, nrows, ncols, get_shape)
+            return (r, h,), (r, h,), ret, shape
+        return (r, h), (r, h,), split_matrix(array, nrows, ncols, get_shape)
+
+    if h < ncols and r > nrows:
+        return split_matrix_even(array, nrows, ncols, get_shape)
+    
+    assert r < nrows and h > ncols
+
+    p, q = r, h
+    prim = get_prime_factors(q)
+
+    while p < nrows and q > ncols:
+        k = prim.pop()
+        p *= k
+        q /= k
+
+    p, q = int(p), int(q)
+    print(f"Reshaped matrix from {r},{h} -> {p},{q}")
+    array = array.reshape(p, q)
+
+    # return array
+    if get_shape:
+        ret, shape = split_matrix(array, nrows, ncols, get_shape)
+        return (r, h,), (p, q), ret, shape
+    return (r, h), (p, q), split_matrix(array, nrows, ncols, get_shape)
 
 
 def split_matrix(array, nrows, ncols, get_shape=False):
@@ -261,17 +317,18 @@ def split_vector(array, nrows, ncols, get_shape=False):
 
 
 def split_weight(array, nrows, ncols, name, w_idx):
+    r, h = array.shape
     if len(array.shape) == 1:
         ret, shape = split_vector(array, nrows, ncols, True)
-        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, array.shape,
+        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, (r, h),
                                True)
         for i in range(shape[1]):
             wblocks.add_block(0, i, ret[i])
         return wblocks
     else:
-        ret, shape = split_matrix(array, nrows, ncols, True)
-        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, array.shape,
-                               False)
+        old_shape, new_shape, ret, shape = split_matrix_even(array, nrows, ncols, True)
+        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, new_shape,
+                               False, old_shape)
         for i in range(shape[0]):
             for j in range(shape[1]):
                 idx = i * shape[1] + j
