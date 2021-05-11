@@ -144,11 +144,8 @@ class ModelBlocks(object):
         raise StopIteration
 
     def reconstruct(self):
-        return {
-            idx: self.weight_blocks[idx].numpy()
-            for idx in tqdm(self.idxs,
-                            desc="Reconstructing blocks into weights")
-        }
+        for idx in self.idxs:
+            yield idx, self.weight_blocks[idx].numpy()
 
 
 def split_matrix(array, nrows, ncols, get_shape=False):

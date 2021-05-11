@@ -125,27 +125,31 @@ def analyse_models_v2_and_dedup(m1,
         pbar = tqdm(total=len(fp_thresholds) * len(sim_thresholds), desc="Dumping deduplicated model pairs")
         for f in fp_thresholds:
             for t in sim_thresholds:
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
+                bak = {}
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
-                r1 = d1.reconstruct()
-                bak1 = {r: m1.layers[r].get_weights() for r in r1.keys()}
-                for r in r1:
-                    w = m1.layers[r].get_weights()
-                    w[0] = r1[r]
-                    m1.layers[r].set_weights(w)
-                r2 = d2.reconstruct()
-                bak2 = {r: m2.layers[r].get_weights() for r in r2.keys()}
-                for r in r2:
-                    w = m2.layers[r].get_weights()
-                    w[0] = r2[r]
-                    m2.layers[r].set_weights(w)
 
-                m1.save(f"{save_path}/models/{m1.name}_{f}_{t}")
-                m2.save(f"{save_path}/models/{m2.name}_{f}_{t}")
+                for idx, r in d1.reconstruct():
+                    bak[idx] = m1.layers[idx].get_weights()
+                    w = m1.layers[idx].get_weights()
+                    w[0] = r
+                    m1.layers[idx].set_weights(w)
 
-                for k in bak1:
-                    m1.layers[k].set_weights(bak1[k])
-                for k in bak2:
-                    m2.layers[k].set_weights(bak2[k])
+                m1.save(f"{save_path}/models/{m1.name}_{f}_{t}_{weight_lower_bound}")
+                for k in bak:
+                    m1.layers[k].set_weights(bak[k])
+                bak.clear()
+
+                for idx, r in d2.reconstruct():
+                    bak[idx] = m2.layers[idx].get_weights()
+                    w = m2.layers[idx].get_weights()
+                    w[0] = r
+                    m2.layers[idx].set_weights(w)
+
+                m2.save(f"{save_path}/models/{m2.name}_{f}_{t}_{weight_lower_bound}")
+                for k in bak:
+                    m2.layers[k].set_weights(bak[k])
+                bak.clear()
 
                 pbar.update(1)
 
