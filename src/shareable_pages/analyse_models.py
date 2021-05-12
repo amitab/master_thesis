@@ -90,7 +90,8 @@ def analyse_models_v2_and_dedup(m1,
                    by,
                    save_path,
                    weight_lower_bound=32,
-                   bits=None):
+                   bits=None,
+                   build_dedup=False):
     assert 'fp' in thresholds
     fp_thresholds = thresholds['fp']
     sim_thresholds = thresholds.get('sim', None)
@@ -123,38 +124,43 @@ def analyse_models_v2_and_dedup(m1,
             analysis = compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
             pickle.dump(analysis, open(split_cache_file, "wb"))
 
-        pbar = tqdm(total=len(fp_thresholds) * len(sim_thresholds), desc="Dumping deduplicated model pairs")
-        for f in fp_thresholds:
-            for t in sim_thresholds:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
-                bak = {}
-                d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
+        if build_dedup:
+            pbar = tqdm(total=len(fp_thresholds) * len(sim_thresholds), desc="Dumping deduplicated model pairs")
+            for f in fp_thresholds:
+                for t in sim_thresholds:
+                    print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
+                    bak = {}
+                    d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
 
-                for idx, r in d1.reconstruct():
-                    bak[idx] = m1.layers[idx].get_weights()
-                    w = m1.layers[idx].get_weights()
-                    shape = w[0].shape
-                    w[0] = r.reshape(*shape)
-                    m1.layers[idx].set_weights(w)
+                    for idx, r in d1.reconstruct():
+                        bak[idx] = m1.layers[idx].get_weights()
+                        w = m1.layers[idx].get_weights()
+                        shape = w[0].shape
+                        w[0] = r.reshape(*shape)
+                        m1.layers[idx].set_weights(w)
 
-                m1.save(f"{save_path}/models/{m1.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
-                for k in bak:
-                    m1.layers[k].set_weights(bak[k])
-                bak.clear()
+                    m1.save(f"{save_path}/models/{m1.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
+                    for k in bak:
+                        m1.layers[k].set_weights(bak[k])
+                    bak.clear()
 
-                for idx, r in d2.reconstruct():
-                    bak[idx] = m2.layers[idx].get_weights()
-                    w = m2.layers[idx].get_weights()
-                    shape = w[0].shape
-                    w[0] = r.reshape(*shape)
-                    m2.layers[idx].set_weights(w)
+                    for idx, r in d2.reconstruct():
+                        bak[idx] = m2.layers[idx].get_weights()
+                        w = m2.layers[idx].get_weights()
+                        shape = w[0].shape
+                        w[0] = r.reshape(*shape)
+                        m2.layers[idx].set_weights(w)
 
-                m2.save(f"{save_path}/models/{m2.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
-                for k in bak:
-                    m2.layers[k].set_weights(bak[k])
-                bak.clear()
+                    m2.save(f"{save_path}/models/{m2.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
+                    for k in bak:
+                        m2.layers[k].set_weights(bak[k])
+                    bak.clear()
 
-                pbar.update(1)
+                    pbar.update(1)
+        else:
+            for f in fp_thresholds:
+                for t in sim_thresholds:
+                    print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
 
 
     elif 'diff' in thresholds:
