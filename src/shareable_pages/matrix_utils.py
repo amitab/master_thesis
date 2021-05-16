@@ -29,7 +29,7 @@ def get_prime_factors(number):
 
 def split_matrix_even(array, nrows, ncols, get_shape=False):
     r, h = array.shape
-    if (r < nrows and h < ncols) or (r > nrows and h > ncols):
+    if (r <= nrows and h <= ncols) or (r >= nrows and h >= ncols):
         if get_shape:
             ret, shape = split_matrix(array, nrows, ncols, get_shape)
             return (r, h,), (r, h,), ret, shape
@@ -38,6 +38,10 @@ def split_matrix_even(array, nrows, ncols, get_shape=False):
     if h < ncols and r > nrows:
         return split_matrix_even(array, nrows, ncols, get_shape)
     
+    if not(r < nrows and h > ncols):
+        import pdb
+        pdb.set_trace()
+
     assert r < nrows and h > ncols
 
     p, q = r, h
