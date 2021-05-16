@@ -36,11 +36,24 @@ def split_matrix_even(array, nrows, ncols, get_shape=False):
         return (r, h), (r, h,), split_matrix(array, nrows, ncols, get_shape)
 
     if h < ncols and r > nrows:
-        return split_matrix_even(array, nrows, ncols, get_shape)
-    
-    if not(r < nrows and h > ncols):
-        import pdb
-        pdb.set_trace()
+        p, q = r, h
+        prim = get_prime_factors(p)
+
+        while p < nrows and q > ncols:
+            k = prim.pop()
+            q *= k
+            p /= k
+
+        p, q = int(p), int(q)
+        print(f"Reshaped matrix from {r},{h} -> {p},{q}")
+        array = array.reshape(p, q)
+
+        # return array
+        if get_shape:
+            ret, shape = split_matrix(array, nrows, ncols, get_shape)
+            return (r, h,), (p, q), ret, shape
+        return (r, h), (p, q), split_matrix(array, nrows, ncols, get_shape)
+
 
     assert r < nrows and h > ncols
 
@@ -58,8 +71,12 @@ def split_matrix_even(array, nrows, ncols, get_shape=False):
 
     # return array
     if get_shape:
-        ret, shape = split_matrix(array, nrows, ncols, get_shape)
-        return (r, h,), (p, q), ret, shape
+        try:
+            ret, shape = split_matrix(array, nrows, ncols, get_shape)
+            return (r, h,), (p, q), ret, shape
+        except:
+            import pdb
+            pdb.set_trace()
     return (r, h), (p, q), split_matrix(array, nrows, ncols, get_shape)
 
 
@@ -72,6 +89,8 @@ def split_matrix(array, nrows, ncols, get_shape=False):
     if r < nrows and h < ncols:
         temp = np.zeros((nrows, ncols))
         temp[:r, :h] = array
+        if get_shape:
+            return [temp], (1, 1,)
         return [temp]
 
     r_mul = math.floor(r / nrows) * nrows
@@ -283,6 +302,23 @@ def test_split_even():
     k = s.numpy().reshape(dims)
     assert np.array_equal(x, k)
 
+    x = np.random.rand(3,393216)
+    dims = x.shape
+    s = split_weight(x, 1200, 1200, "test", 1)
+    k = s.numpy().reshape(dims)
+    assert np.array_equal(x, k)
+
+    x = np.random.rand(3,786432)
+    dims = x.shape
+    s = split_weight(x, 1200, 1200, "test", 1)
+    k = s.numpy().reshape(dims)
+    assert np.array_equal(x, k)
+
+    x = np.random.rand(100,100)
+    dims = x.shape
+    s = split_weight(x, 1200, 1200, "test", 1)
+    k = s.numpy().reshape(dims)
+    assert np.array_equal(x, k)
 
 # Test case
 if __name__ == "__main__":
