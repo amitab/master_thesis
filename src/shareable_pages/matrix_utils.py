@@ -2,7 +2,6 @@ import math
 import copy
 
 import numpy as np
-import tensorflow as tf
 
 from tqdm import tqdm
 
@@ -247,81 +246,83 @@ def dedup_blocks(mapping, mb1, mb2):
     return omb1, omb2
 
 
-###########################################################################
-#                             TEST CASES                                  #
-###########################################################################
-
-def test_iteration():
-    print("Running iteration test")
-    m = tf.keras.applications.VGG16()
-    weight_lower_bound = 32
-    bx = 500
-    by = 500
-
-    weights = [
-        layer_weight_transformer(l) for l in m.layers
-        if len(l.weights) != 0 and layer_bytes(l) >= weight_lower_bound
-    ]
-
-    assert len(weights) > 0
-
-    sa = []
-    for w in tqdm(weights, desc="Splitting model into blocks"):
-        sa.extend(split(w, bx, by))
-
-    sb = split_model(m, bx, by, weight_lower_bound)
-
-    assert len(sa) == len(sb)
-    for i in range(len(sa)):
-        assert np.array_equal(sa[i], sb[i])
-
-
-def test_split():
-    print("Running model split test")
-    m = tf.keras.applications.VGG16()
-    weight_lower_bound = 16
-    bx = 500
-    by = 500
-
-    sb = split_model(m, bx, by, weight_lower_bound)
-
-    for k, re_w in tqdm(sb.reconstruct(), desc="Comparing reconstructed blocks"):
-        w = layer_weight_transformer(m.layers[k])
-        if not np.array_equal(w, re_w):
-            import pdb
-            pdb.set_trace()
-        assert np.array_equal(w, re_w)
-
-
-def test_split_even():
-    print("Running model split even test")
-    x = np.random.rand(3,3,512,512)
-    dims = x.shape
-    s = split_weight(x.reshape(dims[0], dims[1] * dims[2] * dims[3]), 500, 500, "test", 1)
-
-    k = s.numpy().reshape(dims)
-    assert np.array_equal(x, k)
-
-    x = np.random.rand(3,393216)
-    dims = x.shape
-    s = split_weight(x, 1200, 1200, "test", 1)
-    k = s.numpy().reshape(dims)
-    assert np.array_equal(x, k)
-
-    x = np.random.rand(3,786432)
-    dims = x.shape
-    s = split_weight(x, 1200, 1200, "test", 1)
-    k = s.numpy().reshape(dims)
-    assert np.array_equal(x, k)
-
-    x = np.random.rand(100,100)
-    dims = x.shape
-    s = split_weight(x, 1200, 1200, "test", 1)
-    k = s.numpy().reshape(dims)
-    assert np.array_equal(x, k)
-
 # Test case
 if __name__ == "__main__":
+    import tensorflow as tf
+
+    ###########################################################################
+    #                             TEST CASES                                  #
+    ###########################################################################
+
+    def test_iteration():
+        print("Running iteration test")
+        m = tf.keras.applications.VGG16()
+        weight_lower_bound = 32
+        bx = 500
+        by = 500
+
+        weights = [
+            layer_weight_transformer(l) for l in m.layers
+            if len(l.weights) != 0 and layer_bytes(l) >= weight_lower_bound
+        ]
+
+        assert len(weights) > 0
+
+        sa = []
+        for w in tqdm(weights, desc="Splitting model into blocks"):
+            sa.extend(split(w, bx, by))
+
+        sb = split_model(m, bx, by, weight_lower_bound)
+
+        assert len(sa) == len(sb)
+        for i in range(len(sa)):
+            assert np.array_equal(sa[i], sb[i])
+
+
+    def test_split():
+        print("Running model split test")
+        m = tf.keras.applications.VGG16()
+        weight_lower_bound = 16
+        bx = 500
+        by = 500
+
+        sb = split_model(m, bx, by, weight_lower_bound)
+
+        for k, re_w in tqdm(sb.reconstruct(), desc="Comparing reconstructed blocks"):
+            w = layer_weight_transformer(m.layers[k])
+            if not np.array_equal(w, re_w):
+                import pdb
+                pdb.set_trace()
+            assert np.array_equal(w, re_w)
+
+
+    def test_split_even():
+        print("Running model split even test")
+        x = np.random.rand(3,3,512,512)
+        dims = x.shape
+        s = split_weight(x.reshape(dims[0], dims[1] * dims[2] * dims[3]), 500, 500, "test", 1)
+
+        k = s.numpy().reshape(dims)
+        assert np.array_equal(x, k)
+
+        x = np.random.rand(3,393216)
+        dims = x.shape
+        s = split_weight(x, 1200, 1200, "test", 1)
+        k = s.numpy().reshape(dims)
+        assert np.array_equal(x, k)
+
+        x = np.random.rand(3,786432)
+        dims = x.shape
+        s = split_weight(x, 1200, 1200, "test", 1)
+        k = s.numpy().reshape(dims)
+        assert np.array_equal(x, k)
+
+        x = np.random.rand(100,100)
+        dims = x.shape
+        s = split_weight(x, 1200, 1200, "test", 1)
+        k = s.numpy().reshape(dims)
+        assert np.array_equal(x, k)
+
     test_iteration()
     test_split()
     test_split_even()
