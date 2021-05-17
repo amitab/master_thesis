@@ -22,7 +22,8 @@ cache_files = [f for f in listdir("./cache") if isfile(join("./cache/", f))]
 for f in cache_files:
     d = f.split("_")
     block_size = tuple([d[4], d[5]])
-    info = pickle.load(open(join("./cache/", f), "rb"))
+    stats = pickle.load(open(join("./cache/", f), "rb"))
+    info = stats['data']
     for f in info:
         og_size = False
         fp_thresholds.append(f)
@@ -33,8 +34,10 @@ for f in cache_files:
             info[f][t][f'Reduced Size (MB) (similarity={int(float(t) * 100)}%)'] = float(saved_size / 1e+6)
             info[f][t][f'% Reduced Size (MB) (similarity={int(float(t) * 100)}%)'] = float( (total_size - new_size) / total_size) * 100
             if not og_size:
-                info[f][t][f'Original Size (MB)'] = float(total_size / 1e+6)
+                info[f][t][f'Blocked Size (MB)'] = float(total_size / 1e+6)
                 info[f][t][f'Total Blocks'] = info[f][t]['total_blocks']
+                info[f][t]['Layers Size (MB)'] = float(stats['all']['size_considered'] / 1e+6)
+                info[f][t]['Total Size (MB)'] = float(stats['all']['total_size'] / 1e+6)
                 og_size = True
             info[f][t][f'New Size (MB) (similarity={int(float(t) * 100)}%)'] = float(new_size / 1e+6)
 
@@ -92,6 +95,8 @@ for b in analysis:
 
 # import pdb
 # pdb.set_trace()
+
+del data[0.0001]
 
 df = pd.DataFrame.from_dict({
     (i,j): {

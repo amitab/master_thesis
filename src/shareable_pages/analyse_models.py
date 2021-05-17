@@ -109,9 +109,9 @@ def analyse_models_v2_and_dedup(m1,
         key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{'.'.join([str(x) for x in diff_thresholds])}_{'.'.join([str(x) for x in fp_thresholds])}"
         split_cache_file = f"cache/lsh_analysis_{key}.p"
 
-    analysis = None
+    stats = None
     if Path(split_cache_file).is_file():
-        analysis = pickle.load(open(split_cache_file, "rb"))
+        stats = pickle.load(open(split_cache_file, "rb"))
 
     s1 = split_model(m1, bx, by, weight_lower_bound)
     s2 = split_model(m2, bx, by, weight_lower_bound)
@@ -120,10 +120,22 @@ def analyse_models_v2_and_dedup(m1,
         # Compare blocks, naive
         print("Comparing block sets...")
 
-        if analysis is None:
-            analysis = compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
-            pickle.dump(analysis, open(split_cache_file, "wb"))
+        if stats is None:
+            stats = {
+                m1.name: {
+                    'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if len(l.weights) > 0]]) * 8,
+                    'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
+                },
+                m2.name: {
+                    'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if len(l.weights) > 0]]) * 8,
+                    'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
+                },
+                'data': compare_block_sets(s1, s2, sim_thresholds, fp_thresholds)
+            }
 
+            pickle.dump(stats, open(split_cache_file, "wb"))
+
+        analysis = stats['data']
         if build_dedup:
             pbar = tqdm(total=len(fp_thresholds) * len(sim_thresholds), desc="Dumping deduplicated model pairs")
             for f in fp_thresholds:
