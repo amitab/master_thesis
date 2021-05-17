@@ -15,6 +15,38 @@ import tensorflow as tf
 from tensorflow.keras.datasets import mnist
 import keras
 
+# from analyse_model_weights import analyse_model_weights
+# from analyse_models import analyse_models, analyse_models_v2, analyse_models_v2_and_dedup
+# from analyse_weights import analyse_weights
+
+
+# DATA_DRIFT_MODELS_PATH = "../drift/Concept Drift (Data)/"
+
+# m1 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + 'based_model/based_model-45')
+# m2 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + '30k_normal_added_10k_mix/30k_normal_added_10k_mix-45')
+
+# m1._name = "based_model"
+# m2._name = "30k_normal_added_10k_mix"
+
+# sizes = [i * 10 for i in range(1, 51)]
+
+# for size in sizes:
+#     print(
+#         analyse_models_v2_and_dedup(
+#             m1, m2,
+#             {
+#                 'fp': [0.01, 0.001],  # for different floating point thresholds
+#                 'sim': [.7, .8, .9],  # for naive diff similarity percentage
+#                 # 'diff': [.1, .2, .3], # for lsh difference
+#             },
+#             size,
+#             size,
+#             "./",
+#             0.01,
+#             build_dedup=True
+#         ))
+
+
 # Generate the train and test sets
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 y_train = keras.utils.to_categorical(y_train)
@@ -34,10 +66,13 @@ x_train_noisy = np.clip(x_train_noisy, 0., 1.)
 x_test_noisy = np.clip(x_test_noisy, 0., 1.)
 
 import os
+import gc
+
+fiel = open('based_model_30k_normal_added_10k_mix_10_500', 'w+')
 
 for name in os.listdir("./models"):
     if 'based_model' in name or '30k_normal_added_10k_mix' in name:
-        print(name)
+        fiel.write(f"{name}\n")
         data = name.rsplit("_", 5)
         block_size = (int(data[-2]), int(data[-1]),)
         fp_threshold = float(data[1])
@@ -45,11 +80,18 @@ for name in os.listdir("./models"):
         weight_lower_bound = float(data[3])
         model_name = data[0]
     
-        print(f"Model: {model_name}, weight >= {weight_lower_bound}MB, block size: {block_size[0]} x {block_size[1]}, fp threshold: {fp_threshold}, sim threshold: {sim_threshold}")
+        fiel.write(f"Model: {model_name}, weight >= {weight_lower_bound}MB, block size: {block_size[0]} x {block_size[1]}, fp threshold: {fp_threshold}, sim threshold: {sim_threshold}\n")
 
         model = tf.keras.models.load_model(f"./models/{name}")
 
         results = model.evaluate(x_test, y_test)
-        print(results)
+        fiel.write(f"Accuracy - MNIST: {results}\n")
         results = model.evaluate(x_test_noisy, y_test)
-        print(results)
+        fiel.write(f"Accuracy - MNSIT Noisy: {results}\n")
+        fiel.write("-----------------------------------------------------------------------------------------------------------------------\n")
+
+        fiel.flush()
+
+        tf.keras.backend.clear_session()
+        del model
+        gc.collect()
