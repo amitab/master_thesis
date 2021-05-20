@@ -13,6 +13,9 @@ import gc
 
 import sqlite3
 
+from itertools import product
+import l2lsh
+
 connection = sqlite3.connect("blocks.db")
 c = connection.cursor()
 try:
@@ -95,6 +98,97 @@ def resolve_unique_mappings(mapping,
             ((len_s1 + len_s2) - len(unique_bs)) * num_per_block * 8,
             'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
         }
+
+
+def _compare_l2lsh(s1, s2, lsh, fps, sims, bx, by):
+    info = {f: {t: {} for t in sims} for f in fps}
+    tot = bx * by
+
+    for i in range(len(s1)):
+        for v in lsh.query(s1[i].flatten()):
+            if f"s1-{i}" == v:
+                continue
+            b2 = s1[int(v.split("-")[-1])] if v.startswith("s1") else s2[int(v.split("-")[-1])]
+            diff = np.absolute(s1[i] - b2)
+            for f in fps:
+                d = np.count_nonzero(diff <= f)
+                for t in sims:
+                    if f's1-{i}' not in info[f][t]:
+                        info[f][t][f's1-{i}'] = []
+                    if d / tot >= t:
+                        info[f][t][f's1-{i}'].append(v)
+
+    for i in range(len(s2)):
+        for v in lsh.query(s2[i].flatten()):
+            if f"s2-{i}" == v:
+                continue
+            b2 = s1[int(v.split("-")[-1])] if v.startswith("s1") else s2[int(v.split("-")[-1])]
+            diff = np.absolute(s2[i] - b2)
+            for f in fps:
+                d = np.count_nonzero(diff <= f)
+                for t in sims:
+                    if f's2-{i}' not in info[f][t]:
+                        info[f][t][f's2-{i}'] = []
+                    if d / tot >= t:
+                        info[f][t][f's2-{i}'].append(v)
+
+    return info
+
+def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
+    data = {r: {k: {l: None for l in ls} for k in ks} for r in rs}
+
+    parameter_combination = list(product(rs, ks, ls))
+    for params in tqdm(parameter_combination, desc="Running L2LSH on blocks"):
+        r = params[0]
+        k = params[1]
+        l = params[2]
+
+        lsh = l2lsh.L2LSH(bx * by, r=r, num_k=k, num_l=l, seed=10)
+
+        for i, val in enumerate(s1):
+            lsh.insert(val.flatten(), f"s1-{i}")
+
+        for i, val in enumerate(s2):
+            lsh.insert(val.flatten(), f"s2-{i}")
+
+        data[r][k][l] = _compare_l2lsh(s1, s2, lsh, fps, sims, bx, by)
+
+        # import pdb
+        # pdb.set_trace()
+        # if all([len(v) == 1 for v in lsh.hash_table.values()]):
+        #     continue
+
+        # test = [list(v) for v in lsh.hash_table.values() if len(v) > 1]
+
+        # info = data[r][k][l]
+        # for val in test:
+        #     bs1 = [s1[int(val[i].split("-")[-1])] for i in range(len(val)) if val[i].startswith("s1")]
+        #     bs2 = [s2[int(val[i].split("-")[-1])] for i in range(len(val)) if val[i].startswith("s2")]
+        #     info = list(_comp_mem(bs1, bs2, sims, fps))
+        #     import pdb
+        #     pdb.set_trace()
+        #     # Pairwise comp to validate
+        #     # for i in range(len(val)):
+        #     #     for j in range(i + 1, len(val)):
+        #     #         b1 = s1[int(val[i].split("-")[-1])] if val[i].startswith("s1") else s2[int(val[i].split("-")[-1])]
+        #     #         b2 = s1[int(val[j].split("-")[-1])] if val[j].startswith("s1") else s2[int(val[j].split("-")[-1])]
+
+        #     #         diff = np.absolute(b1 - b2)
+        #     #         for f in fps:
+        #     #             d = np.count_nonzero(diff <= f)
+        #     #             tot = bx * by
+        #     #             for t in sims:
+        #     #                 if val[i] not in info[f][t]:
+        #     #                     info[f][t][val[i]] = []
+        #     #                 if val[j] not in info[f][t]:
+        #     #                     info[f][t][val[j]] = []
+        #     #                 if d / tot >= t:
+        #     #                     info[f][t][val[i]].append(val[j])
+        #                         # info[f][t][val[j]].append(val[i])
+                    
+        # # import pdb
+        # # pdb.set_trace()
+
 
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):

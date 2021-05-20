@@ -10,8 +10,13 @@ import pandas as pd
 analysis = {}
 
 ground_truth = {
+    # sparse_top_k_categorical_accuracy
     'vgg16': 0.8667173385620117,
     'vgg19': 0.8690981268882751
+
+    # sparse_categorical_accuracy
+    # 'vgg16': 0.6572903394699097,
+    # 'vgg19': 0.6619318127632141
 }
 
 fp_thresholds = []
@@ -96,7 +101,7 @@ for b in analysis:
 # import pdb
 # pdb.set_trace()
 
-del data[0.0001]
+# del data[0.0001]
 
 df = pd.DataFrame.from_dict({
     (i,j): {

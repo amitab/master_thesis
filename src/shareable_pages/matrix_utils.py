@@ -187,23 +187,26 @@ def split_vector(array, nrows, ncols, get_shape=False):
 
 
 def split_weight(array, nrows, ncols, name, w_idx):
-    r, h = array.shape
     if len(array.shape) == 1:
-        ret, shape = split_vector(array, nrows, ncols, True)
-        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, (r, h),
-                               True)
-        for i in range(shape[1]):
-            wblocks.add_block(0, i, ret[i])
-        return wblocks
-    else:
-        old_shape, new_shape, ret, shape = split_matrix_even(array, nrows, ncols, True)
-        wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, new_shape,
-                               False, old_shape)
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                idx = i * shape[1] + j
-                wblocks.add_block(i, j, ret[idx])
-        return wblocks
+        array = array.reshape(-1,1)
+
+    r, h = array.shape
+    # if len(array.shape) == 1:
+    #     ret, shape = split_vector(array, nrows, ncols, True)
+    #     wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, (r, h),
+    #                            True)
+    #     for i in range(shape[1]):
+    #         wblocks.add_block(0, i, ret[i])
+    #     return wblocks
+    # else:
+    old_shape, new_shape, ret, shape = split_matrix_even(array, nrows, ncols, True)
+    wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, new_shape,
+                            False, old_shape)
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+            idx = i * shape[1] + j
+            wblocks.add_block(i, j, ret[idx])
+    return wblocks
 
 
 def split_model(m, nrows, ncols, weight_lower_bound=32):
