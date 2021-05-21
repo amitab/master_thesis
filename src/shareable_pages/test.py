@@ -13,8 +13,8 @@ m2 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + '30k_normal_added_10k_m
 # m1._name = "based_model"
 # m2._name = "30k_normal_added_10k_mix"
 
-mnet = tf.keras.applications.MobileNet()
-mnetv2 = tf.keras.applications.MobileNetV2()
+# mnet = tf.keras.applications.MobileNet()
+# mnetv2 = tf.keras.applications.MobileNetV2()
 # import pdb
 # pdb.set_trace()
 # vgg16 = tf.keras.applications.VGG16()
@@ -25,11 +25,8 @@ mnetv2 = tf.keras.applications.MobileNetV2()
 # resnet101v2 = tf.keras.applications.ResNet101V2()
 # resnet152 = tf.keras.applications.ResNet152()
 
-# print("Starting to read files")
-# w1 = np.loadtxt("weights/vgg19_-3.np")
-# print("Read file 1")
-# w2 = np.loadtxt("weights/vgg16_-3.np")
-# print("Read file 2")
+# import pdb
+# pdb.set_trace()
 
 # print(
 #     analyse_weights(
@@ -56,9 +53,10 @@ mnetv2 = tf.keras.applications.MobileNetV2()
 
 print(
     analyse_models_v2_and_dedup(
-        # m1, m2,
+        m1, m2,
         # vgg16, vgg19,
-        mnet, mnetv2,
+        # mnet, mnetv2,
+        # resnet50, resnet101,
         {
             # 'pairwise': {
             #     'fp': [0.01, 0.001],  # for different floating point thresholds
@@ -82,7 +80,7 @@ print(
                 'sims': [.7, .8, .9],  # for naive diff similarity percentage
             }
         },
-        1000,
-        1000,
-        8
+        25,
+        25,
+        0.1
     ))

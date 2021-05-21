@@ -194,46 +194,49 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
 
         pickle.dump(stats, open(split_cache_file, "wb"))
 
-    analysis = stats['data']
+    analysis = stats['data']['lsh']
     if save_path is not None:
         pbar = tqdm(total=len(args['r']) * len(args['k']) * len(args['l']), desc="Dumping deduplicated model pairs")
         for r in args['r']:
             for k in args['k']:
                 for l in args['l']:
-                    print(f"r: {r}, k: {k}, l: {l} -> Blocks ({analysis[r][k][l]['num_reduced']} / {analysis[r][k][l]['total_blocks']}) | Bytes ({analysis[r][k][l]['bytes_reduced']} / {analysis[r][k][l]['total_bytes']})")
-                bak = {}
-                d1, d2 = dedup_blocks(analysis[r][k][l]['mappings'], s1, s2)
+                    mps = analysis[r][k][l]['resolved']
 
-                for idx, r in d1.reconstruct():
-                    bak[idx] = m1.layers[idx].get_weights()
-                    w = m1.layers[idx].get_weights()
-                    shape = w[0].shape
-                    w[0] = r.reshape(*shape)
-                    m1.layers[idx].set_weights(w)
+                    print(f"r: {r}, k: {k}, l: {l} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
+                    bak = {}
+                    d1, d2 = dedup_blocks(mps['mappings'], s1, s2)
 
-                m1.save(f"{save_path}/models/{m1.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
-                for k in bak:
-                    m1.layers[k].set_weights(bak[k])
-                bak.clear()
+                    for idx, r in d1.reconstruct():
+                        bak[idx] = m1.layers[idx].get_weights()
+                        w = m1.layers[idx].get_weights()
+                        shape = w[0].shape
+                        w[0] = r.reshape(*shape)
+                        m1.layers[idx].set_weights(w)
 
-                for idx, r in d2.reconstruct():
-                    bak[idx] = m2.layers[idx].get_weights()
-                    w = m2.layers[idx].get_weights()
-                    shape = w[0].shape
-                    w[0] = r.reshape(*shape)
-                    m2.layers[idx].set_weights(w)
+                    m1.save(f"{save_path}/models/{m1.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
+                    for k in bak:
+                        m1.layers[k].set_weights(bak[k])
+                    bak.clear()
 
-                m2.save(f"{save_path}/models/{m2.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
-                for k in bak:
-                    m2.layers[k].set_weights(bak[k])
-                bak.clear()
+                    for idx, r in d2.reconstruct():
+                        bak[idx] = m2.layers[idx].get_weights()
+                        w = m2.layers[idx].get_weights()
+                        shape = w[0].shape
+                        w[0] = r.reshape(*shape)
+                        m2.layers[idx].set_weights(w)
 
-                pbar.update(1)
+                    m2.save(f"{save_path}/models/{m2.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
+                    for k in bak:
+                        m2.layers[k].set_weights(bak[k])
+                    bak.clear()
+
+                    pbar.update(1)
     else:
-        for f in fp_thresholds:
-            for t in sim_thresholds:
-                    print(f"r: {r}, k: {k}, l: {l} -> Blocks ({analysis[r][k][l]['num_reduced']} / {analysis[r][k][l]['total_blocks']}) | Bytes ({analysis[r][k][l]['bytes_reduced']} / {analysis[r][k][l]['total_bytes']})")
-
+        for r in args['r']:
+            for k in args['k']:
+                for l in args['l']:
+                    mps = analysis[r][k][l]['resolved']
+                    print(f"r: {r}, k: {k}, l: {l} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
 
 def analyse_models_v2_and_dedup(m1,
                    m2,

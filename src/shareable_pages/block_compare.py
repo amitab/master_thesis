@@ -16,6 +16,9 @@ import sqlite3
 from itertools import product
 import l2lsh
 
+from utils import evaluation
+import copy
+
 connection = sqlite3.connect("blocks.db")
 c = connection.cursor()
 try:
@@ -29,11 +32,8 @@ class UNIQUE_MAPPING_MODE(Enum):
     TRANSITIVE = 2
 
 
-def resolve_unique_mappings(mapping,
-                            len_s1,
-                            len_s2,
-                            num_per_block,
-                            mode=UNIQUE_MAPPING_MODE.SIMILARITY):
+def _resolve_mappings(m, mode=UNIQUE_MAPPING_MODE.SIMILARITY):
+    mapping = copy.deepcopy(m)
     if mode == UNIQUE_MAPPING_MODE.TRANSITIVE:
         b_names = list(mapping.keys())
 
@@ -60,17 +60,7 @@ def resolve_unique_mappings(mapping,
                 pending_bs = temp_bs
                 temp_bs = set()
 
-        return {
-            # 'unique_bs': unique_bs,
-            'mappings': info,
-            'total_blocks': (len_s1 + len_s2),
-            'num_unique':
-            len(unique_bs),
-            'num_reduced': ((len_s1 + len_s2) - len(unique_bs)),
-            'bytes_reduced':
-            ((len_s1 + len_s2) - len(unique_bs)) * num_per_block * 8,
-            'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
-        }
+        return info, len(unique_bs)
 
     elif mode == UNIQUE_MAPPING_MODE.SIMILARITY:
         info = {k: None for k in mapping}
@@ -78,64 +68,70 @@ def resolve_unique_mappings(mapping,
                                  key=lambda x: len(x[1]),
                                  reverse=True)
 
+        replaced = []
+        unique = []
         for k, v in sorted_mappings:
+            if k in replaced:
+                continue
+            unique.append(k)
             for dup in v:
+                if dup in unique:
+                    continue
+                if dup not in info:
+                    info[dup] = None
                 if info[dup] is None:
                     info[dup] = k
+                    replaced.append(dup)
 
         unique_bs = [k for k in info if info[k] is None]
         unique_bs.extend([v for v in info.values() if v is not None])
         unique_bs = set(unique_bs)
 
-        return {
-            # 'unique_bs': unique_bs,
-            'mappings': info,
-            'total_blocks': (len_s1 + len_s2),
-            'num_unique':
-            len(unique_bs),
-            'num_reduced': ((len_s1 + len_s2) - len(unique_bs)),
-            'bytes_reduced':
-            ((len_s1 + len_s2) - len(unique_bs)) * num_per_block * 8,
-            'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
-        }
+        return info, len(unique_bs)
 
 
-def _compare_l2lsh(s1, s2, lsh, fps, sims, bx, by):
-    info = {f: {t: {} for t in sims} for f in fps}
-    tot = bx * by
+def resolve_unique_mappings(mapping,
+                            len_s1,
+                            len_s2,
+                            num_per_block,
+                            mode=UNIQUE_MAPPING_MODE.SIMILARITY):
+    info, len_unique = _resolve_mappings(mapping, mode)
+    return {
+        'mappings': info,
+        'total_blocks': (len_s1 + len_s2),
+        'num_unique': len_unique,
+        'num_reduced': ((len_s1 + len_s2) - len_unique),
+        'bytes_reduced':
+        ((len_s1 + len_s2) - len_unique) * num_per_block * 8,
+        'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
+    }
+
+
+def _compare_l2lsh(s1, s2, lsh):
+    data = {}
 
     for i in range(len(s1)):
-        for v in lsh.query(s1[i].flatten()):
-            if f"s1-{i}" == v:
-                continue
-            b2 = s1[int(v.split("-")[-1])] if v.startswith("s1") else s2[int(v.split("-")[-1])]
-            diff = np.absolute(s1[i] - b2)
-            for f in fps:
-                d = np.count_nonzero(diff <= f)
-                for t in sims:
-                    if f's1-{i}' not in info[f][t]:
-                        info[f][t][f's1-{i}'] = []
-                    if d / tot >= t:
-                        info[f][t][f's1-{i}'].append(v)
+        sim = lsh.query(s1[i].flatten())
+        data[f"s1-{i}"] = [x for x in sim if f"s1-{i}" != x]
 
     for i in range(len(s2)):
-        for v in lsh.query(s2[i].flatten()):
-            if f"s2-{i}" == v:
-                continue
-            b2 = s1[int(v.split("-")[-1])] if v.startswith("s1") else s2[int(v.split("-")[-1])]
-            diff = np.absolute(s2[i] - b2)
-            for f in fps:
-                d = np.count_nonzero(diff <= f)
-                for t in sims:
-                    if f's2-{i}' not in info[f][t]:
-                        info[f][t][f's2-{i}'] = []
-                    if d / tot >= t:
-                        info[f][t][f's2-{i}'].append(v)
+        sim = lsh.query(s1[i].flatten())
+        data[f"s2-{i}"] = [x for x in sim if f"s2-{i}" != x]
 
-    return info
+    return data
+
 
 def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
-    data = {r: {k: {l: None for l in ls} for k in ks} for r in rs}
+    data = {r: {k: {l: {} for l in ls} for k in ks} for r in rs}
+    truth = {f: {t: {} for t in sims} for f in fps}
+    res = {f: {t: {} for t in sims} for f in fps}
+
+    for f, t, mappings in _comp_mem(s1, s2, sims, fps):
+        truth[f][t] = {
+            'mappings': mappings,
+            # 'resolved': _resolve_mappings(mappings),
+            'resolved': resolve_unique_mappings(mappings, len(s1), len(s2), bx * by)
+        }
 
     parameter_combination = list(product(rs, ks, ls))
     for params in tqdm(parameter_combination, desc="Running L2LSH on blocks"):
@@ -151,44 +147,25 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
         for i, val in enumerate(s2):
             lsh.insert(val.flatten(), f"s2-{i}")
 
-        data[r][k][l] = _compare_l2lsh(s1, s2, lsh, fps, sims, bx, by)
+        lms = _compare_l2lsh(s1, s2, lsh)
 
-        # import pdb
-        # pdb.set_trace()
-        # if all([len(v) == 1 for v in lsh.hash_table.values()]):
-        #     continue
+        data[r][k][l] = {
+            'mappings': lms,
+            # 'resolved': _resolve_mappings(lms)
+            'resolved': resolve_unique_mappings(lms, len(s1), len(s2), bx * by)
+        }
 
-        # test = [list(v) for v in lsh.hash_table.values() if len(v) > 1]
+        for f in fps:
+            for t in sims:
+                rms = truth[f][t]['mappings']
+                metrics = evaluation(rms, lms)
+                res[f][t] = metrics
 
-        # info = data[r][k][l]
-        # for val in test:
-        #     bs1 = [s1[int(val[i].split("-")[-1])] for i in range(len(val)) if val[i].startswith("s1")]
-        #     bs2 = [s2[int(val[i].split("-")[-1])] for i in range(len(val)) if val[i].startswith("s2")]
-        #     info = list(_comp_mem(bs1, bs2, sims, fps))
-        #     import pdb
-        #     pdb.set_trace()
-        #     # Pairwise comp to validate
-        #     # for i in range(len(val)):
-        #     #     for j in range(i + 1, len(val)):
-        #     #         b1 = s1[int(val[i].split("-")[-1])] if val[i].startswith("s1") else s2[int(val[i].split("-")[-1])]
-        #     #         b2 = s1[int(val[j].split("-")[-1])] if val[j].startswith("s1") else s2[int(val[j].split("-")[-1])]
-
-        #     #         diff = np.absolute(b1 - b2)
-        #     #         for f in fps:
-        #     #             d = np.count_nonzero(diff <= f)
-        #     #             tot = bx * by
-        #     #             for t in sims:
-        #     #                 if val[i] not in info[f][t]:
-        #     #                     info[f][t][val[i]] = []
-        #     #                 if val[j] not in info[f][t]:
-        #     #                     info[f][t][val[j]] = []
-        #     #                 if d / tot >= t:
-        #     #                     info[f][t][val[i]].append(val[j])
-        #                         # info[f][t][val[j]].append(val[i])
-                    
-        # # import pdb
-        # # pdb.set_trace()
-
+    return {
+        'lsh': data,
+        'truth': truth,
+        'eval': res
+    }
 
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
@@ -466,7 +443,6 @@ def _comp_mp(s1, s2, sim_thresholds, fp_thresholds):
         for t in sim_thresholds:
             info[f][t][f's2-{len(s2) - 1}'] = []
             yield f, t, info[f][t]
-
 
 def _comp_og(s1, s2, sim_thresholds, fp_thresholds):
     info = {f: {t: {} for t in sim_thresholds} for f in fp_thresholds}
