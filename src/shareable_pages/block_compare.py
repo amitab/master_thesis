@@ -124,7 +124,7 @@ def _compare_l2lsh(s1, s2, lsh):
 def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
     data = {r: {k: {l: {} for l in ls} for k in ks} for r in rs}
     truth = {f: {t: {} for t in sims} for f in fps}
-    res = {f: {t: {} for t in sims} for f in fps}
+    res = {r: {k: {l: {f: {t: {} for t in sims} for f in fps} for l in ls} for k in ks} for r in rs}
 
     for f, t, mappings in _comp_mem(s1, s2, sims, fps):
         truth[f][t] = {
@@ -159,7 +159,7 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
             for t in sims:
                 rms = truth[f][t]['mappings']
                 metrics = evaluation(rms, lms)
-                res[f][t] = metrics
+                res[r][k][l][f][t] = metrics
 
     return {
         'lsh': data,
