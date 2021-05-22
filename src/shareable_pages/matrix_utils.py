@@ -30,9 +30,9 @@ def split_matrix_even(array, nrows, ncols, get_shape=False):
     r, h = array.shape
     if (r <= nrows and h <= ncols) or (r >= nrows and h >= ncols):
         if get_shape:
-            ret, shape = split_matrix(array, nrows, ncols, get_shape)
+            ret, shape = split_matrix_v2(array, nrows, ncols)
             return (r, h,), (r, h,), ret, shape
-        return (r, h), (r, h,), split_matrix(array, nrows, ncols, get_shape)
+        return (r, h), (r, h,), split_matrix_v2(array, nrows, ncols)
 
     if h < ncols and r > nrows:
         p, q = r, h
@@ -49,9 +49,9 @@ def split_matrix_even(array, nrows, ncols, get_shape=False):
 
         # return array
         if get_shape:
-            ret, shape = split_matrix(array, nrows, ncols, get_shape)
+            ret, shape = split_matrix_v2(array, nrows, ncols)
             return (r, h,), (p, q), ret, shape
-        return (r, h), (p, q), split_matrix(array, nrows, ncols, get_shape)
+        return (r, h), (p, q), split_matrix_v2(array, nrows, ncols)
 
 
     assert r < nrows and h > ncols
@@ -71,12 +71,87 @@ def split_matrix_even(array, nrows, ncols, get_shape=False):
     # return array
     if get_shape:
         try:
-            ret, shape = split_matrix(array, nrows, ncols, get_shape)
+            ret, shape = split_matrix_v2(array, nrows, ncols)
             return (r, h,), (p, q), ret, shape
         except:
             import pdb
             pdb.set_trace()
-    return (r, h), (p, q), split_matrix(array, nrows, ncols, get_shape)
+    return (r, h), (p, q), split_matrix_v2(array, nrows, ncols)
+
+
+def split_matrix_v2(array, nrows, ncols):
+    assert len(array.shape) == 2
+
+    r, h = array.shape
+    assert r != 0 or h != 0
+
+    if r < nrows and h < ncols:
+        temp = np.zeros((nrows, ncols))
+        temp[:r, :h] = array
+        return [(temp, (r,h))], (1, 1,)
+
+    r_mul = math.floor(r / nrows) * nrows
+    h_mul = math.floor(h / ncols) * ncols
+
+    r_left = r - r_mul
+    assert 0 <= r_left < nrows
+    h_left = h - h_mul
+    assert 0 <= h_left < ncols
+
+    num_x_blocks = math.ceil(r_mul / float(nrows))
+    num_y_blocks = math.ceil(h_mul / float(ncols))
+
+    r_full = (math.ceil(r / nrows) * nrows) if r % nrows != 0 else r
+    h_full = (math.ceil(h / ncols) * ncols) if h % ncols != 0 else h
+
+    nx = math.ceil(r_full / float(nrows))
+    ny = math.ceil(h_full / float(ncols))
+
+    nrray = array[:r_mul, :h_mul]
+    left_row = array[r_mul:, :h_mul]
+    left_col = array[:, h_mul:]
+
+    ret = []
+
+    if nrray.size > 0:
+        ret.extend(np.vsplit(nrray, num_x_blocks))
+        ret = [np.hsplit(r, num_y_blocks) for r in ret]
+        ret = [[(block, (nrows, ncols)) for block in row] for row in ret]
+
+    if left_row.size > 0:
+        row = []
+        height = left_row.shape[0]
+        for i in range(num_y_blocks):
+            width = min(ncols, left_row.shape[1] - i * ncols)
+            temp = np.zeros((nrows, ncols))
+            temp[:height, :width] = left_row[:, i * ncols:i * ncols + ncols]
+            row.append((temp, (height, width)))
+        ret.append(row)
+
+    if left_col.size > 0:
+        width = left_col.shape[1]
+        for i in range(nx):
+            height = min(nrows, left_col.shape[0] - i * nrows)
+            temp = np.zeros((nrows, ncols))
+            temp[:height, :width] = left_col[i * nrows:i * nrows + nrows, :]
+            if i >= len(ret):
+                ret.append([(temp, (height, width))])
+            else:
+                ret[i].append((temp, (height, width)))
+
+    ret = [j for i in ret for j in i]
+
+    if len(ret) != nx * ny:
+        import pdb
+        pdb.set_trace()
+
+    assert len(ret) == nx * ny
+    assert isinstance(ret[0], tuple) and isinstance(ret[0][0], np.ndarray)
+
+    return ret, (
+        nx,
+        ny,
+    )
 
 
 def split_matrix(array, nrows, ncols, get_shape=False):
@@ -199,13 +274,13 @@ def split_weight(array, nrows, ncols, name, w_idx):
     #         wblocks.add_block(0, i, ret[i])
     #     return wblocks
     # else:
-    old_shape, new_shape, ret, shape = split_matrix_even(array, nrows, ncols, True)
-    wblocks = WeightBlocks(shape[0], shape[1], name, w_idx, new_shape,
-                            False, old_shape)
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            idx = i * shape[1] + j
-            wblocks.add_block(i, j, ret[idx])
+    old_shape, new_shape, ret, blocking_shape = split_matrix_even(array, nrows, ncols, True)
+
+    wblocks = WeightBlocks(blocking_shape, name, w_idx, new_shape, False, old_shape)
+    for i in range(blocking_shape[0]):
+        for j in range(blocking_shape[1]):
+            idx = i * blocking_shape[1] + j
+            wblocks.add_block(i, j, ret[idx][0], ret[idx][1])
     return wblocks
 
 

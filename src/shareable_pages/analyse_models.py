@@ -83,6 +83,21 @@ def analyse_models_v2(m1,
         return compare_lsh_block_sets(s1, s2, diff_thresholds, bx * by, bits)
 
 
+def _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound):
+    stats = {
+        m1.name: {
+            'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if len(l.weights) > 0]]) * 8,
+            'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
+        },
+        m2.name: {
+            'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if len(l.weights) > 0]]) * 8,
+            'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
+        },
+        'data': None
+    }
+
+    return stats
+
 def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
     key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{'.'.join([str(x) for x in args['sim']])}_{'.'.join([str(x) for x in args['fp']])}"
     split_cache_file = f"cache/block_analysis_{key}.p"
@@ -92,25 +107,18 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
         stats = pickle.load(open(split_cache_file, "rb"))    
 
     if stats is None:
-        stats = {
-            m1.name: {
-                'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if len(l.weights) > 0]]) * 8,
-                'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
-            },
-            m2.name: {
-                'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if len(l.weights) > 0]]) * 8,
-                'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
-            },
-            'data': compare_block_sets(s1, s2, args['sim'], args['fp'])
-        }
-
+        stats = _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound)
+        stats['data'] = compare_block_sets(s1, s2, args['sim'], args['fp'])
         pickle.dump(stats, open(split_cache_file, "wb"))
+
+    import pdb
+    pdb.set_trace()
 
     analysis = stats['data']
     if save_path is not None:
-        pbar = tqdm(total=len(fp_thresholds) * len(sim_thresholds), desc="Dumping deduplicated model pairs")
-        for f in fp_thresholds:
-            for t in sim_thresholds:
+        pbar = tqdm(total=len(args['fp']) * len(args['sim']), desc="Dumping deduplicated model pairs")
+        for f in args['fp']:
+            for t in args['sim']:
                 print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
                 bak = {}
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
@@ -141,8 +149,8 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
 
                 pbar.update(1)
     else:
-        for f in fp_thresholds:
-            for t in sim_thresholds:
+        for f in args['fp']:
+            for t in args['sim']:
                 print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
 
 
@@ -155,18 +163,8 @@ def _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args)
         stats = pickle.load(open(split_cache_file, "rb"))
 
     if stats is None:
-        stats = {
-            m1.name: {
-                'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if len(l.weights) > 0]]) * 8,
-                'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
-            },
-            m2.name: {
-                'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if len(l.weights) > 0]]) * 8,
-                'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
-            },
-            'data': compare_lsh_block_sets(s1, s2, args['diff'], bx * by, args['bits'])
-        }
-
+        stats = _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound)
+        stats['data'] = compare_lsh_block_sets(s1, s2, args['diff'], bx * by, args['bits'])
         pickle.dump(stats, open(split_cache_file, "wb"))
 
 
@@ -180,18 +178,8 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
         stats = pickle.load(open(split_cache_file, "rb"))
 
     if stats is None:
-        stats = {
-            m1.name: {
-                'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if len(l.weights) > 0]]) * 8,
-                'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m1.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
-            },
-            m2.name: {
-                'total_size': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if len(l.weights) > 0]]) * 8,
-                'size_considered': np.sum([np.prod(i.get_weights()[0].shape) for i in [l for l in m2.layers if layer_bytes(l) >= weight_lower_bound]]) * 8,
-            },
-            'data': compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], args['fps'], args['sims'], bx, by)
-        }
-
+        stats = _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound)
+        stats['data'] = compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], args['fps'], args['sims'], bx, by)
         pickle.dump(stats, open(split_cache_file, "wb"))
 
     analysis = stats['data']['lsh']

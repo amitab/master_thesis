@@ -60,7 +60,7 @@ def _resolve_mappings(m, mode=UNIQUE_MAPPING_MODE.SIMILARITY):
                 pending_bs = temp_bs
                 temp_bs = set()
 
-        return info, len(unique_bs)
+        return info, unique_bs
 
     elif mode == UNIQUE_MAPPING_MODE.SIMILARITY:
         info = {k: None for k in mapping}
@@ -87,23 +87,42 @@ def _resolve_mappings(m, mode=UNIQUE_MAPPING_MODE.SIMILARITY):
         unique_bs.extend([v for v in info.values() if v is not None])
         unique_bs = set(unique_bs)
 
-        return info, len(unique_bs)
+        return info, unique_bs
 
 
 def resolve_unique_mappings(mapping,
-                            len_s1,
-                            len_s2,
+                            s1,
+                            s2,
                             num_per_block,
                             mode=UNIQUE_MAPPING_MODE.SIMILARITY):
-    info, len_unique = _resolve_mappings(mapping, mode)
+    info, uniques = _resolve_mappings(mapping, mode)
+
+    unpadded_unique_size = 0
+    padded_unique_size = 0
+
+    for un in uniques:
+        if un.startswith('s1'):
+            idx = int(un.split("-")[-1])
+            padded_unique_size += s1.getBlock(idx).get_padded_size()
+            unpadded_unique_size += s1.getBlock(idx).get_unpadded_size()
+
+    for un in uniques:
+        if un.startswith('s2'):
+            idx = int(un.split("-")[-1])
+            padded_unique_size += s2.getBlock(idx).get_padded_size()
+            unpadded_unique_size += s2.getBlock(idx).get_unpadded_size()
+
     return {
         'mappings': info,
-        'total_blocks': (len_s1 + len_s2),
-        'num_unique': len_unique,
-        'num_reduced': ((len_s1 + len_s2) - len_unique),
+        'total_blocks': (len(s1) + len(s2)),
+        'num_unique': len(uniques),
+        'num_reduced': ((len(s1) + len(s2)) - len(uniques)),
         'bytes_reduced':
-        ((len_s1 + len_s2) - len_unique) * num_per_block * 8,
-        'total_bytes': (len_s1 + len_s1) * num_per_block * 8,
+        ((len(s1) + len(s2)) - len(uniques)) * num_per_block * 8,
+        'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
+        # 'unique_blocks': uniques,
+        'unpadded_unique_size': unpadded_unique_size * 8,
+        'padded_unique_size': padded_unique_size * 8,
     }
 
 
@@ -130,7 +149,7 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
         truth[f][t] = {
             'mappings': mappings,
             # 'resolved': _resolve_mappings(mappings),
-            'resolved': resolve_unique_mappings(mappings, len(s1), len(s2), bx * by)
+            'resolved': resolve_unique_mappings(mappings, s1, s2, bx * by)
         }
 
     parameter_combination = list(product(rs, ks, ls))
@@ -152,7 +171,7 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
         data[r][k][l] = {
             'mappings': lms,
             # 'resolved': _resolve_mappings(lms)
-            'resolved': resolve_unique_mappings(lms, len(s1), len(s2), bx * by)
+            'resolved': resolve_unique_mappings(lms, s1, s2, bx * by)
         }
 
         for f in fps:
@@ -225,7 +244,7 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     cons = {t: {} for t in diff_thresholds}
     pbar = tqdm(total=len(diff_thresholds), desc="Gathering results")
     for f in diff_thresholds:
-        cons[f] = resolve_unique_mappings(info[f], len(s1), len(s2),
+        cons[f] = resolve_unique_mappings(info[f], s1, s2,
                                           num_per_block)
         pbar.update(1)
 
@@ -505,13 +524,13 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
     if len(s1) <= 500 and len(s2) <= 500:
         for k in _comp_mem(s1, s2, sim_thresholds, fp_thresholds):
             f, t, mappings = k
-            temp = resolve_unique_mappings(mappings, len(s1), len(s2), num_per_block)
+            temp = resolve_unique_mappings(mappings, s1, s2, num_per_block)
             cons[f][t] = temp
             pbar.update(1)
     else:
         for k in _comp_db(s1, s2, sim_thresholds, fp_thresholds):
             f, t, mappings = k
-            temp = resolve_unique_mappings(mappings, len(s1), len(s2), num_per_block)
+            temp = resolve_unique_mappings(mappings, s1, s2, num_per_block)
             cons[f][t] = temp
             pbar.update(1)
 

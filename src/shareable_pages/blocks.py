@@ -13,7 +13,7 @@ def idx_to_2d(num_y_blocks, idx):
 
 class Block(object):
     def __init__(self, block, i, j, num_x_blocks, num_y_blocks, name, w_idx,
-                 is_vec):
+                 is_vec, unpadded_shape):
         self.block = block
         self.i = i
         self.j = j
@@ -22,44 +22,53 @@ class Block(object):
         self.name = name
         self.w_idx = w_idx
         self.is_vec = is_vec
+        self.unpadded_shape = unpadded_shape
+
+    def get_padded_size(self):
+        return self.block.size
+
+    def get_unpadded_size(self):
+        return np.product(self.unpadded_shape)
 
 
 class WeightBlocks(object):
     def __init__(self,
-                 num_x_blocks,
-                 num_y_blocks,
+                 blocking_shape,
                  name,
                  w_idx,
                  og_shape,
                  is_vec,
                  reshape=None):
-        self.num_x_blocks = num_x_blocks
-        self.num_y_blocks = num_y_blocks
+        self.num_x_blocks, self.num_y_blocks = blocking_shape
         self.name = name
         self.w_idx = w_idx
         self.blocks = {}
         # self.all_blocks = []
         self.is_vec = is_vec
-        self.set_size = num_x_blocks * num_y_blocks
+        self.set_size = self.num_x_blocks * self.num_y_blocks
         self.og_shape = og_shape
         self.reshape = reshape
 
         self.cur_i = 0
         self.cur_j = 0
 
-    def add_block(self, i, j, block):
+    def add_block(self, i, j, block, block_unpadded_shape=None):
         assert i not in self.blocks or j not in self.blocks[i]
         if i not in self.blocks:
             self.blocks[i] = {}
 
         self.blocks[i][j] = Block(block, i, j, self.num_x_blocks,
                                   self.num_y_blocks, self.name, self.w_idx,
-                                  self.is_vec)
+                                  self.is_vec, block_unpadded_shape)
         # self.all_blocks.append(block)
 
     def __getitem__(self, idx):
         i, j = idx_to_2d(self.num_y_blocks, idx)
         return self.blocks[i][j].block
+
+    def getBlock(self, idx):
+        i, j = idx_to_2d(self.num_y_blocks, idx)
+        return self.blocks[i][j]
 
     def __setitem__(self, idx, item):
         i, j = idx_to_2d(self.num_y_blocks, idx)
@@ -123,6 +132,11 @@ class ModelBlocks(object):
 
     def __len__(self):
         return self.set_size
+
+    def getBlock(self, idx):
+        start, w_idx = self.block_ptrs[idx]
+        b_idx = idx - start
+        return self.weight_blocks[w_idx].getBlock(b_idx)
 
     def __getitem__(self, idx):
         start, w_idx = self.block_ptrs[idx]
