@@ -5,8 +5,8 @@ import numpy as np
 
 from tqdm import tqdm
 
-from blocks import ModelBlocks, WeightBlocks
-from tf_layer_helpers import layer_weight_transformer, layer_bytes
+from .blocks import ModelBlocks, WeightBlocks
+from .tf_layer_helpers import layer_weight_transformer, layer_bytes
 
 
 def get_prime_factors(number):

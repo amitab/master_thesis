@@ -15,4 +15,6 @@
 !src/ensembles
 !src/federated
 !src/shareable_pages
+!src/shareable_pages/deduplicator
+!src/shareable_pages/jupyter
 !.gitignore

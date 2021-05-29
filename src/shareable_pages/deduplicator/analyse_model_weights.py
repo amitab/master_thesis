@@ -1,6 +1,6 @@
 import numpy as np
 
-from tf_layer_helpers import layer_weight_transformer
+from .tf_layer_helpers import layer_weight_transformer
 from tqdm import tqdm
 
 

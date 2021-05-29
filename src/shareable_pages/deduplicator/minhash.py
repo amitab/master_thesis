@@ -4,7 +4,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from matrix_utils import split, split_model, dedup_blocks
+from .matrix_utils import split, split_model, dedup_blocks
 
 vgg16 = tf.keras.applications.VGG16()
 vgg19 = tf.keras.applications.VGG19()

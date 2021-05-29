@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tf_layer_helpers import layer_weight_transformer, layer_bytes
+from .tf_layer_helpers import layer_weight_transformer, layer_bytes
 import numpy as np
 
 import sys

@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 
 from tqdm import tqdm
-from lsh import signature_bit, bitcount
+from .lsh import signature_bit, bitcount
 
 from enum import Enum
 
@@ -14,9 +14,9 @@ import gc
 import sqlite3
 
 from itertools import product
-import l2lsh
+from .l2lsh import L2LSH
 
-from utils import evaluation
+from .utils import evaluation
 import copy
 
 connection = sqlite3.connect("blocks.db")
@@ -158,7 +158,7 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
         k = params[1]
         l = params[2]
 
-        lsh = l2lsh.L2LSH(bx * by, r=r, num_k=k, num_l=l, seed=10)
+        lsh = L2LSH(bx * by, r=r, num_k=k, num_l=l, seed=10)
 
         for i, val in enumerate(s1):
             lsh.insert(val.flatten(), f"s1-{i}")

@@ -1,7 +1,7 @@
 import numpy as np
 
-from matrix_utils import split_matrix
-from block_compare import compare_block_sets, compare_lsh_block_sets
+from .matrix_utils import split_matrix
+from .block_compare import compare_block_sets, compare_lsh_block_sets
 
 def analyse_weights(w1, w2, thresholds, bx, by, bits=None):
     assert len(w1.shape) == len(w2.shape) == 2

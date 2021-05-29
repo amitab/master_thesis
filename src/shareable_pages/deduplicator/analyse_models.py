@@ -1,8 +1,8 @@
 import numpy as np
 
-from matrix_utils import split, split_model, dedup_blocks
-from block_compare import compare_block_sets, compare_lsh_block_sets, compare_l2lsh_block_sets
-from tf_layer_helpers import layer_weight_transformer, layer_bytes
+from .matrix_utils import split, split_model, dedup_blocks
+from .block_compare import compare_block_sets, compare_lsh_block_sets, compare_l2lsh_block_sets
+from .tf_layer_helpers import layer_weight_transformer, layer_bytes
 
 from tqdm import tqdm
 
@@ -10,6 +10,8 @@ import copy
 import time
 import pickle
 from pathlib import Path
+
+CACHE_PATH="./cache"
 
 def analyse_models(m1,
                    m2,
@@ -100,7 +102,7 @@ def _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound):
 
 def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
     key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{'.'.join([str(x) for x in args['sim']])}_{'.'.join([str(x) for x in args['fp']])}"
-    split_cache_file = f"cache/block_analysis_{key}.p"
+    split_cache_file = f"{CACHE_PATH}/block_analysis_{key}.p"
 
     stats = None
     if Path(split_cache_file).is_file():
@@ -156,7 +158,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
 
 def _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
     key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{args['bits']}_{'.'.join([str(x) for x in args['diff']])}"
-    split_cache_file = f"cache/cosinelsh_analysis_{key}.p"
+    split_cache_file = f"{CACHE_PATH}/cosinelsh_analysis_{key}.p"
 
     stats = None
     if Path(split_cache_file).is_file():
@@ -171,7 +173,7 @@ def _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args)
 def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
     k = f"{'.'.join([str(x) for x in args['r']])}_{'.'.join([str(x) for x in args['k']])}_{'.'.join([str(x) for x in args['l']])}_{'.'.join([str(x) for x in args['sims']])}_{'.'.join([str(x) for x in args['fps']])}"
     key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{hash(k)}"
-    split_cache_file = f"cache/l2lsh_{key}.p"
+    split_cache_file = f"{CACHE_PATH}/l2lsh_{key}.p"
 
     stats = None
     if Path(split_cache_file).is_file():

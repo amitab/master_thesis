@@ -1,24 +1,24 @@
+from deduplicator import analyse_model_weights
+from deduplicator import analyse_models, analyse_models_v2, analyse_models_v2_and_dedup
+from deduplicator import analyse_weights
+
 import tensorflow as tf
 import numpy as np
 
-from analyse_model_weights import analyse_model_weights
-from analyse_models import analyse_models, analyse_models_v2, analyse_models_v2_and_dedup
-from analyse_weights import analyse_weights
+DATA_DRIFT_MODELS_PATH = "../drift/Concept Drift (Data)/"
 
-# DATA_DRIFT_MODELS_PATH = "../drift/Concept Drift (Data)/"
+m1 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + 'based_model/based_model-45')
+m2 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + '30k_normal_added_10k_mix/30k_normal_added_10k_mix-45')
 
-# m1 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + 'based_model/based_model-45')
-# m2 = tf.keras.models.load_model(DATA_DRIFT_MODELS_PATH + '30k_normal_added_10k_mix/30k_normal_added_10k_mix-45')
-
-# m1._name = "based_model"
-# m2._name = "30k_normal_added_10k_mix"
+m1._name = "based_model"
+m2._name = "30k_normal_added_10k_mix"
 
 # mnet = tf.keras.applications.MobileNet()
 # mnetv2 = tf.keras.applications.MobileNetV2()
 # import pdb
 # pdb.set_trace()
-vgg16 = tf.keras.applications.VGG16()
-vgg19 = tf.keras.applications.VGG19()
+# vgg16 = tf.keras.applications.VGG16()
+# vgg19 = tf.keras.applications.VGG19()
 
 # resnet50 = tf.keras.applications.ResNet50()
 # resnet101 = tf.keras.applications.ResNet101()
@@ -53,8 +53,8 @@ vgg19 = tf.keras.applications.VGG19()
 
 print(
     analyse_models_v2_and_dedup(
-        # m1, m2,
-        vgg16, vgg19,
+        m1, m2,
+        # vgg16, vgg19,
         # mnet, mnetv2,
         # resnet50, resnet101,
         {

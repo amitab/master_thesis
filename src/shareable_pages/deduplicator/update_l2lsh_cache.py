@@ -8,7 +8,7 @@ from os.path import isfile, join
 
 import pandas as pd
 from tqdm import tqdm
-from utils import evaluation
+from .utils import evaluation
 
 from itertools import product
 

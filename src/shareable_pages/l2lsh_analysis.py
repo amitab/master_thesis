@@ -3,15 +3,15 @@ import pickle
 from os import listdir
 from os.path import isfile, join
 import pandas as pd
-from utils import evaluation
+from .deduplicator import evaluation
 from tqdm import tqdm
 from itertools import product
 
-from block_compare import _resolve_mappings
+from .deduplicator import _resolve_mappings
 
 import tensorflow as tf
-from matrix_utils import split_model
-from block_compare import _comp_mem
+from .deduplicator import split_model
+from .deduplicator import _comp_mem
 
 DATA_DRIFT_MODELS_PATH = "../drift/Concept Drift (Data)/"
 
