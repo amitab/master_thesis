@@ -269,6 +269,7 @@ def _comp_db(s1, s2, sim_thresholds, fp_thresholds):
                     for t in sim_thresholds:
                         if d / num_per_block >= t:
                             recs.append(tuple([f, t, a, b]))
+                            recs.append(tuple([f, t, b, a]))
 
         cursor.executemany('INSERT INTO blocks_comp(fp_th, sim_th, a_block_id, b_block_id) VALUES(?,?,?,?);', recs)
 
@@ -341,8 +342,11 @@ def _comp_mem(s1, s2, sim_thresholds, fp_thresholds):
                     for t in sim_thresholds:
                         if a not in info[f][t]:
                             info[f][t][a] = []
+                        if b not in info[f][t]:
+                            info[f][t][b] = []
                         if d / num_per_block >= t:
                             info[f][t][a].append(b)
+                            info[f][t][b].append(a)
 
     pbar = tqdm(total=(len(s1) * (len(s1) - 1)) / 2, desc="Dedup S1")
     a = { f"s1-{i}":
@@ -368,7 +372,7 @@ def _comp_mem(s1, s2, sim_thresholds, fp_thresholds):
 
     for f in fp_thresholds:
         for t in sim_thresholds:
-            info[f][t][f's2-{len(s2) - 1}'] = []
+            # info[f][t][f's2-{len(s2) - 1}'] = []
             yield f, t, info[f][t]
 
 def _comp_mp(s1, s2, sim_thresholds, fp_thresholds):
@@ -420,8 +424,10 @@ def _comp_mp(s1, s2, sim_thresholds, fp_thresholds):
                     for t in sim_thresholds:
                         if a not in info[f][t]:
                             info[f][t][a] = []
+                        if b not in info[f][t]:
+                            info[f][t][b] = []
                         if d / num_per_block >= t:
-                            info[f][t][a].append(b)
+                            info[f][t][b].append(a)
 
     num_processes = 2
     splits_s1 = [i * int(len(s1) / num_processes) for i in range(num_processes)] + [len(s1)]
@@ -477,8 +483,11 @@ def _comp_og(s1, s2, sim_thresholds, fp_thresholds):
                 for t in sim_thresholds:
                     if f's1-{i}' not in info[f][t]:
                         info[f][t][f's1-{i}'] = []
+                    if f's1-{j}' not in info[f][t]:
+                        info[f][t][f's1-{j}'] = []
                     if d / tot >= t:
                         info[f][t][f's1-{i}'].append(f's1-{j}')
+                        info[f][t][f's1-{j}'].append(f's1-{i}')
 
     for i in tqdm(range(len(s2)), desc="Deduplicating Set 2"):
         for j in range(i + 1, len(s2)):
@@ -490,8 +499,11 @@ def _comp_og(s1, s2, sim_thresholds, fp_thresholds):
                 for t in sim_thresholds:
                     if f's2-{i}' not in info[f][t]:
                         info[f][t][f's2-{i}'] = []
+                    if f's2-{j}' not in info[f][t]:
+                        info[f][t][f's2-{j}'] = []
                     if d / tot >= t:
                         info[f][t][f's2-{i}'].append(f's2-{j}')
+                        info[f][t][f's2-{j}'].append(f's2-{i}')
 
     pbar = tqdm(total=len(s1), desc="Deduplicating Set 1 and Set 2")
     for i, b1 in enumerate(s1):
@@ -504,10 +516,11 @@ def _comp_og(s1, s2, sim_thresholds, fp_thresholds):
                 for t in sim_thresholds:
                     if f's1-{i}' not in info[f][t]:
                         info[f][t][f's1-{i}'] = []
-                    # if f's2-{j}' not in info[f][t]:
-                    #     info[f][t][f's2-{j}'] = []
+                    if f's2-{j}' not in info[f][t]:
+                        info[f][t][f's2-{j}'] = []
                     if d / tot >= t:
                         info[f][t][f's1-{i}'].append(f's2-{j}')
+                        info[f][t][f's2-{j}'].append(f's1-{i}')
         pbar.update(1)
 
     for f in fp_thresholds:
