@@ -11,7 +11,9 @@ import time
 import pickle
 from pathlib import Path
 
-CACHE_PATH="./cache"
+import os
+
+CACHE_PATH=f"{os.path.abspath(os.path.dirname(__file__))}/cache"
 
 def analyse_models(m1,
                    m2,
@@ -113,9 +115,6 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
         stats['data'] = compare_block_sets(s1, s2, args['sim'], args['fp'])
         pickle.dump(stats, open(split_cache_file, "wb"))
 
-    import pdb
-    pdb.set_trace()
-
     analysis = stats['data']
     if save_path is not None:
         pbar = tqdm(total=len(args['fp']) * len(args['sim']), desc="Dumping deduplicated model pairs")
@@ -171,7 +170,8 @@ def _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args)
 
 
 def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
-    k = f"{'.'.join([str(x) for x in args['r']])}_{'.'.join([str(x) for x in args['k']])}_{'.'.join([str(x) for x in args['l']])}_{'.'.join([str(x) for x in args['sims']])}_{'.'.join([str(x) for x in args['fps']])}"
+    k = f"{'.'.join([str(x) for x in args['r']])}_{'.'.join([str(x) for x in args['k']])}_{'.'.join([str(x) for x in args['l']])}"
+    # TODO: This hash doesnt work, isnt stable
     key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{hash(k)}"
     split_cache_file = f"{CACHE_PATH}/l2lsh_{key}.p"
 
@@ -181,16 +181,16 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
 
     if stats is None:
         stats = _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound)
-        stats['data'] = compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], args['fps'], args['sims'], bx, by)
+        stats['data'] = compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], bx, by)
         pickle.dump(stats, open(split_cache_file, "wb"))
 
-    analysis = stats['data']['lsh']
+    analysis = stats['data']
     if save_path is not None:
         pbar = tqdm(total=len(args['r']) * len(args['k']) * len(args['l']), desc="Dumping deduplicated model pairs")
         for r in args['r']:
             for k in args['k']:
                 for l in args['l']:
-                    mps = analysis[r][k][l]['resolved']
+                    mps = analysis[r][k][l]
 
                     print(f"r: {r}, k: {k}, l: {l} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
                     bak = {}
@@ -225,9 +225,37 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
         for r in args['r']:
             for k in args['k']:
                 for l in args['l']:
-                    mps = analysis[r][k][l]['resolved']
+                    mps = analysis[r][k][l]
                     print(f"r: {r}, k: {k}, l: {l} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
 
+"""
+Takes in 2 models and splits each of the layers which have their
+size >= weight_lower_bound (in terms of MB) weights into blocks
+of size bx X by.
+If save path is specifed, the deduplcated models will be saved in
+the provided path for later inspection of accuracy.
+
+Supports 3 methods of deduplication -
+1. Pairwise - One block is compared with all other blocks.
+Example:
+block_set_1 = [a, b, c]
+block_set_2 = [e, f, g]
+
+a is compared to [b, c, e, f, g]
+b is compared to [c, e, f, g]
+c is compared to [e, f, g]
+e is compared to [f, g]
+f is compared to [g]
+
+IF a ~ f,
+THEN a's similarity list in the result mapping will contain f
+AND f's similarity list in the result mapping will contain a
+
+2. cosine - Doesnt work
+
+3. l2lsh - All blocks are hashed and the similarity list for every block is
+built by querying the lsh table.
+"""
 def analyse_models_v2_and_dedup(m1,
                    m2,
                    args,

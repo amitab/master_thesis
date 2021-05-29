@@ -140,17 +140,8 @@ def _compare_l2lsh(s1, s2, lsh):
     return data
 
 
-def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
+def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, bx, by):
     data = {r: {k: {l: {} for l in ls} for k in ks} for r in rs}
-    truth = {f: {t: {} for t in sims} for f in fps}
-    res = {r: {k: {l: {f: {t: {} for t in sims} for f in fps} for l in ls} for k in ks} for r in rs}
-
-    for f, t, mappings in _comp_mem(s1, s2, sims, fps):
-        truth[f][t] = {
-            'mappings': mappings,
-            # 'resolved': _resolve_mappings(mappings),
-            'resolved': resolve_unique_mappings(mappings, s1, s2, bx * by)
-        }
 
     parameter_combination = list(product(rs, ks, ls))
     for params in tqdm(parameter_combination, desc="Running L2LSH on blocks"):
@@ -168,23 +159,9 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, fps, sims, bx, by):
 
         lms = _compare_l2lsh(s1, s2, lsh)
 
-        data[r][k][l] = {
-            'mappings': lms,
-            # 'resolved': _resolve_mappings(lms)
-            'resolved': resolve_unique_mappings(lms, s1, s2, bx * by)
-        }
+        data[r][k][l] = resolve_unique_mappings(lms, s1, s2, bx * by)
 
-        for f in fps:
-            for t in sims:
-                rms = truth[f][t]['mappings']
-                metrics = evaluation(rms, lms)
-                res[r][k][l][f][t] = metrics
-
-    return {
-        'lsh': data,
-        'truth': truth,
-        'eval': res
-    }
+    return data
 
 
 def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
@@ -552,7 +529,7 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
 
 # Test case
 if __name__ == "__main__":
-    from matrix_utils import split_model
+    from .matrix_utils import split_model
 
     print("Running model comp test")
     m1 = tf.keras.applications.VGG16()

@@ -69,18 +69,16 @@ print(
             #     # 'r': np.arange(0.1, 2, 0.1),
             #     # # 'k': np.arange(1, 30, 1),
             #     # # 'l': np.arange(10, 70, 1),
-            #     # 'k': [11],
-            #     # 'l': [46],
+            #     'r': [0.1],
+            #     'k': [11],
+            #     'l': [46],
 
-            #     'r': np.arange(0.1, 2, 0.1),
-            #     'k': np.arange(1, 30, 2),
-            #     'l': np.arange(10, 70, 2),
-
-            #     'fps': [0.01, 0.001],  # for different floating point thresholds
-            #     'sims': [.7, .8, .9],  # for naive diff similarity percentage
+            #     # 'r': np.arange(0.1, 0.5, 0.1),
+            #     # 'k': np.arange(1, 10, 2),
+            #     # 'l': np.arange(10, 20, 2),
             # }
         },
-        1300,
-        1300,
-        32
+        50,
+        50,
+        0.1
     ))

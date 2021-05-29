@@ -17,4 +17,5 @@
 !src/shareable_pages
 !src/shareable_pages/deduplicator
 !src/shareable_pages/jupyter
+!src/shareable_pages/README.md
 !.gitignore
