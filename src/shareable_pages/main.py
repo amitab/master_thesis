@@ -58,27 +58,28 @@ print(
         # mnet, mnetv2,
         # resnet50, resnet101,
         {
-            'pairwise': {
-                'fp': [0.01, 0.001],  # for different floating point thresholds
-                'sim': [.7, .8, .9],  # for naive diff similarity percentage
-            },
+            # 'pairwise': {
+            #     'fp': [0.01, 0.001],  # for different floating point thresholds
+            #     'sim': [.7, .8, .9],  # for naive diff similarity percentage
+            # },
             # 'cosine': {
             #     'diff': [.1, .2, .3], # for lsh difference
             # }
-            # 'l2lsh': {
-            #     # 'r': np.arange(0.1, 2, 0.1),
-            #     # # 'k': np.arange(1, 30, 1),
-            #     # # 'l': np.arange(10, 70, 1),
-            #     'r': [0.1],
-            #     'k': [11],
-            #     'l': [46],
+            'l2lsh': {
+                # 'r': np.arange(0.1, 2, 0.1),
+                # # 'k': np.arange(1, 30, 1),
+                # # 'l': np.arange(10, 70, 1),
+                # 'r': [0.1],
+                # 'k': [11],
+                # 'l': [46],
 
-            #     # 'r': np.arange(0.1, 0.5, 0.1),
-            #     # 'k': np.arange(1, 10, 2),
-            #     # 'l': np.arange(10, 20, 2),
-            # }
+                'r': np.arange(0.1, 1, 0.2),
+                'k': np.arange(1, 20, 4),
+                'l': np.arange(10, 40, 4),
+                'd': 1
+            }
         },
-        50,
-        50,
+        25,
+        25,
         0.1
     ))

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from .matrix_utils import split, split_model, dedup_blocks
 from .block_compare import compare_block_sets, compare_lsh_block_sets, compare_l2lsh_block_sets
@@ -6,14 +7,17 @@ from .tf_layer_helpers import layer_weight_transformer, layer_bytes
 
 from tqdm import tqdm
 
-import copy
-import time
 import pickle
 from pathlib import Path
+
+import hashlib
 
 import os
 
 CACHE_PATH=f"{os.path.abspath(os.path.dirname(__file__))}/cache"
+
+def _get_args_str(a):
+    return ".".join(f"{x:.5f}" for x in a)
 
 def analyse_models(m1,
                    m2,
@@ -103,7 +107,8 @@ def _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound):
     return stats
 
 def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
-    key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{'.'.join([str(x) for x in args['sim']])}_{'.'.join([str(x) for x in args['fp']])}"
+    k = hashlib.md5(f"{_get_args_str(args['sim'])}_{_get_args_str(args['fp'])}".encode('utf-8')).hexdigest()
+    key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{k}"
     split_cache_file = f"{CACHE_PATH}/block_analysis_{key}.p"
 
     stats = None
@@ -170,9 +175,9 @@ def _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args)
 
 
 def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
-    k = f"{'.'.join([str(x) for x in args['r']])}_{'.'.join([str(x) for x in args['k']])}_{'.'.join([str(x) for x in args['l']])}"
-    # TODO: This hash doesnt work, isnt stable
-    key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{hash(k)}"
+    k = hashlib.md5(f"{_get_args_str(args['r'])}_{_get_args_str(args['k'])}_{_get_args_str(args['l'])}_{_get_args_str([args['d']])}".encode('utf-8')).hexdigest()
+    key = f"{m1.name}_{m2.name}_{bx}_{by}_{weight_lower_bound}_{k}"
+
     split_cache_file = f"{CACHE_PATH}/l2lsh_{key}.p"
 
     stats = None
@@ -181,7 +186,7 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
 
     if stats is None:
         stats = _gather_stats(s1, s2, m1, m2, bx, by, weight_lower_bound)
-        stats['data'] = compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], bx, by)
+        stats['data'] = compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], args['d'], bx, by)
         pickle.dump(stats, open(split_cache_file, "wb"))
 
     analysis = stats['data']
@@ -190,43 +195,45 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
         for r in args['r']:
             for k in args['k']:
                 for l in args['l']:
-                    mps = analysis[r][k][l]
+                    for d in range(l * args['d']):
+                        mps = analysis[r][k][l][d]
+                        print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
 
-                    print(f"r: {r}, k: {k}, l: {l} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
-                    bak = {}
-                    d1, d2 = dedup_blocks(mps['mappings'], s1, s2)
+                        bak = {}
+                        d1, d2 = dedup_blocks(mps['mappings'], s1, s2)
 
-                    for idx, r in d1.reconstruct():
-                        bak[idx] = m1.layers[idx].get_weights()
-                        w = m1.layers[idx].get_weights()
-                        shape = w[0].shape
-                        w[0] = r.reshape(*shape)
-                        m1.layers[idx].set_weights(w)
+                        for idx, r in d1.reconstruct():
+                            bak[idx] = m1.layers[idx].get_weights()
+                            w = m1.layers[idx].get_weights()
+                            shape = w[0].shape
+                            w[0] = r.reshape(*shape)
+                            m1.layers[idx].set_weights(w)
 
-                    m1.save(f"{save_path}/models/{m1.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
-                    for k in bak:
-                        m1.layers[k].set_weights(bak[k])
-                    bak.clear()
+                        m1.save(f"{save_path}/models/{m1.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
+                        for k in bak:
+                            m1.layers[k].set_weights(bak[k])
+                        bak.clear()
 
-                    for idx, r in d2.reconstruct():
-                        bak[idx] = m2.layers[idx].get_weights()
-                        w = m2.layers[idx].get_weights()
-                        shape = w[0].shape
-                        w[0] = r.reshape(*shape)
-                        m2.layers[idx].set_weights(w)
+                        for idx, r in d2.reconstruct():
+                            bak[idx] = m2.layers[idx].get_weights()
+                            w = m2.layers[idx].get_weights()
+                            shape = w[0].shape
+                            w[0] = r.reshape(*shape)
+                            m2.layers[idx].set_weights(w)
 
-                    m2.save(f"{save_path}/models/{m2.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
-                    for k in bak:
-                        m2.layers[k].set_weights(bak[k])
-                    bak.clear()
+                        m2.save(f"{save_path}/models/{m2.name}_{r}_{k}_{l}_{weight_lower_bound}_{bx}_{by}")
+                        for k in bak:
+                            m2.layers[k].set_weights(bak[k])
+                        bak.clear()
 
-                    pbar.update(1)
+                        pbar.update(1)
     else:
         for r in args['r']:
             for k in args['k']:
                 for l in args['l']:
-                    mps = analysis[r][k][l]
-                    print(f"r: {r}, k: {k}, l: {l} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
+                    for d in range(l * args['d']):
+                        mps = analysis[r][k][l][d]
+                        print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
 
 """
 Takes in 2 models and splits each of the layers which have their

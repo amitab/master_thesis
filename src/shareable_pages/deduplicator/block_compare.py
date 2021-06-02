@@ -126,22 +126,21 @@ def resolve_unique_mappings(mapping,
     }
 
 
-def _compare_l2lsh(s1, s2, lsh):
+def _compare_l2lsh(s1, s2, lsh, d):
     data = {}
-
     for i in range(len(s1)):
-        sim = lsh.query(s1[i].flatten())
+        sim = lsh.query(s1[i].flatten(), threshold=d)
         data[f"s1-{i}"] = [x for x in sim if f"s1-{i}" != x]
 
     for i in range(len(s2)):
-        sim = lsh.query(s1[i].flatten())
+        sim = lsh.query(s2[i].flatten(), threshold=d)
         data[f"s2-{i}"] = [x for x in sim if f"s2-{i}" != x]
 
     return data
 
 
-def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, bx, by):
-    data = {r: {k: {l: {} for l in ls} for k in ks} for r in rs}
+def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, d, bx, by):
+    data = {r: {k: {l: {threshold: {} for threshold in range(0, l * d + 1)} for l in ls} for k in ks} for r in rs}
 
     parameter_combination = list(product(rs, ks, ls))
     for params in tqdm(parameter_combination, desc="Running L2LSH on blocks"):
@@ -157,9 +156,9 @@ def compare_l2lsh_block_sets(s1, s2, rs, ks, ls, bx, by):
         for i, val in enumerate(s2):
             lsh.insert(val.flatten(), f"s2-{i}")
 
-        lms = _compare_l2lsh(s1, s2, lsh)
-
-        data[r][k][l] = resolve_unique_mappings(lms, s1, s2, bx * by)
+        for threshold in range(0, l * d + 1):
+            lms = _compare_l2lsh(s1, s2, lsh, threshold)
+            data[r][k][l][threshold] = resolve_unique_mappings(lms, s1, s2, bx * by)
 
     return data
 
