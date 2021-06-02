@@ -12,6 +12,8 @@ from pathlib import Path
 
 import hashlib
 
+import copy
+
 import os
 
 CACHE_PATH=f"{os.path.abspath(os.path.dirname(__file__))}/cache"
@@ -130,7 +132,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
 
                 for idx, r in d1.reconstruct():
-                    bak[idx] = m1.layers[idx].get_weights()
+                    bak[idx] = copy.deepcopy(m1.layers[idx].get_weights())
                     w = m1.layers[idx].get_weights()
                     shape = w[0].shape
                     w[0] = r.reshape(*shape)
@@ -142,7 +144,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
                 bak.clear()
 
                 for idx, r in d2.reconstruct():
-                    bak[idx] = m2.layers[idx].get_weights()
+                    bak[idx] = copy.deepcopy(m2.layers[idx].get_weights())
                     w = m2.layers[idx].get_weights()
                     shape = w[0].shape
                     w[0] = r.reshape(*shape)
@@ -158,6 +160,8 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
         for f in args['fp']:
             for t in args['sim']:
                 print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
+
+    return analysis
 
 
 def _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
@@ -235,6 +239,8 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
                         mps = analysis[r][k][l][d]
                         print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
 
+    return analysis
+
 """
 Takes in 2 models and splits each of the layers which have their
 size >= weight_lower_bound (in terms of MB) weights into blocks
@@ -286,3 +292,5 @@ def analyse_models_v2_and_dedup(m1,
         stats = _analyse_cosine(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args['cosine'])
     elif l2lsh:
         stats = _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args['l2lsh'])
+
+    return stats

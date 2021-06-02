@@ -15,8 +15,6 @@ from itertools import product
 cache_files = [file_name for file_name in listdir("./cache") if isfile(join("./cache/", file_name)) and file_name.endswith(".p") and 'l2lsh' in file_name]
 pbar = tqdm(total=len(cache_files))
 for file_name in cache_files:
-    # import pdb
-    # pdb.set_trace()
     info = pickle.load(open(join("./cache/", file_name), "rb"))
     d = file_name.rsplit("_", 5)
     weight_lower_bound = float(d[3])

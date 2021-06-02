@@ -84,11 +84,7 @@ while line:
                 model_acc = [float(k.strip()) for k in model_acc.split(", ")]
                 loss, acc = model_acc
 
-                try:
-                    analysis[int(block_size[0])][float(fp_threshold)][float(sim_threshold)][f"{model_name.upper()} {dataset_name} accuracy reduction (similarity={int(float(sim_threshold) * 100)}%)"] = (ground_truth[model_name][dataset_name] - acc)
-                except:
-                    import pdb
-                    pdb.set_trace()
+                analysis[int(block_size[0])][float(fp_threshold)][float(sim_threshold)][f"{model_name.upper()} {dataset_name} accuracy reduction (similarity={int(float(sim_threshold) * 100)}%)"] = (ground_truth[model_name][dataset_name] - acc)
                 break
 
             line = f.readline()
@@ -100,9 +96,6 @@ data = {f: {b: None for b in block_sizes} for f in fp_thresholds}
 for b in analysis:
     for f in analysis[b]:
         data[f][b] = analysis[b][f]
-
-# import pdb
-# pdb.set_trace()
 
 df = pd.DataFrame.from_dict({
     (i,j): {

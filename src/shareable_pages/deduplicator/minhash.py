@@ -39,6 +39,3 @@ for key in min_dict.keys():
    lsh2.insert(key, min_dict[key])
 
 test = {k: lsh2.query(min_dict[k]) for k in min_dict if len(lsh2.query(min_dict[k])) > 1}
-
-import pdb
-pdb.set_trace()

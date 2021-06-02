@@ -76,8 +76,6 @@ for file_name in cache_files:
         # uniq = _resolve_mappings(lsh_res)[1]
         # lsh_reduced = info['data']['lsh'][r][k][l]['resolved']['total_blocks'] - len(uniq)
         # if r == 1.1 and k == 17 and l == 28:
-        #     import pdb
-        #     pdb.set_trace()
 
         for f in fps:
             for t in sims:
@@ -94,9 +92,6 @@ for file_name in cache_files:
                 # res[r][k][l][f][t] = metrics.tolist() + [info['data']['truth'][f][t]['resolved']['num_reduced'], lsh_reduced]
 
     # pickle.dump(res, open(f"{file_name}_l2lsh_analysis.p", "wb"))
-
-    # import pdb
-    # pdb.set_trace()
 
     df = pd.DataFrame.from_dict({
         (i, j, k, l, m): tuple([i, j, k, l, m] + res[i][j][k][l][m])

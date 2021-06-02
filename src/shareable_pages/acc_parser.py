@@ -98,9 +98,6 @@ for b in analysis:
     for f in analysis[b]:
         data[f][b] = analysis[b][f]
 
-# import pdb
-# pdb.set_trace()
-
 # del data[0.0001]
 
 df = pd.DataFrame.from_dict({

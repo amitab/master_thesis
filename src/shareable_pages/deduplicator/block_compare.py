@@ -403,6 +403,7 @@ def _comp_mp(s1, s2, sim_thresholds, fp_thresholds):
                         if b not in info[f][t]:
                             info[f][t][b] = []
                         if d / num_per_block >= t:
+                            info[f][t][a].append(b)
                             info[f][t][b].append(a)
 
     num_processes = 2
@@ -423,9 +424,9 @@ def _comp_mp(s1, s2, sim_thresholds, fp_thresholds):
     for _ in range(num_processes * 3):
         process_op(q.get())
 
-    for f in fp_thresholds:
-        for t in sim_thresholds:
-            info[f][t][f's2-{len(s2) - 1}'] = []
+    # for f in fp_thresholds:
+    #     for t in sim_thresholds:
+    #         info[f][t][f's2-{len(s2) - 1}'] = []
 
     pq.put(None)
 
@@ -442,7 +443,7 @@ def _comp_mp(s1, s2, sim_thresholds, fp_thresholds):
 
     for f in fp_thresholds:
         for t in sim_thresholds:
-            info[f][t][f's2-{len(s2) - 1}'] = []
+            # info[f][t][f's2-{len(s2) - 1}'] = []
             yield f, t, info[f][t]
 
 def _comp_og(s1, s2, sim_thresholds, fp_thresholds):
@@ -501,7 +502,7 @@ def _comp_og(s1, s2, sim_thresholds, fp_thresholds):
 
     for f in fp_thresholds:
         for t in sim_thresholds:
-            info[f][t][f's2-{len(s2) - 1}'] = []
+            # info[f][t][f's2-{len(s2) - 1}'] = []
             yield f, t, info[f][t]
 
 def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
@@ -524,26 +525,3 @@ def compare_block_sets(s1, s2, sim_thresholds, fp_thresholds):
             pbar.update(1)
 
     return cons
-
-
-# Test case
-if __name__ == "__main__":
-    from .matrix_utils import split_model
-
-    print("Running model comp test")
-    m1 = tf.keras.applications.VGG16()
-    m2 = tf.keras.applications.VGG19()
-    weight_lower_bound = 16
-    bx = 1500
-    by = 1500
-
-    s1 = split_model(m1, bx, by, weight_lower_bound)
-    s2 = split_model(m2, bx, by, weight_lower_bound)
-
-    for a, b, c, d in zip(
-        _comp_db(s1, s2, [0.7, 0.8, 0.9], [0.01, 0.001]),
-        _comp_mem(s1, s2, [0.7, 0.8, 0.9], [0.01, 0.001]),
-        _comp_mp(s1, s2, [0.7, 0.8, 0.9], [0.01, 0.001]),
-        _comp_og(s1, s2, [0.7, 0.8, 0.9], [0.01, 0.001]),
-    ):
-        assert a == b == c == d
