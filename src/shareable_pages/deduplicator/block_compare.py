@@ -114,6 +114,7 @@ def resolve_unique_mappings(mapping,
 
     return {
         'mappings': info,
+        'duplicate_list': mapping,
         'total_blocks': (len(s1) + len(s2)),
         'num_unique': len(uniques),
         'num_reduced': ((len(s1) + len(s2)) - len(uniques)),

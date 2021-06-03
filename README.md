@@ -3,7 +3,7 @@
 From the `docker` folder, run this command:
 `docker-compose up -d --build --remove-orphans`
 
-Then navigate to `localhost:10000` to access the jupyter notebook.
+Then navigate to `localhost:20000` to access the jupyter notebook.
 
 # The project structure and purpose
 
