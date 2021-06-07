@@ -70,7 +70,14 @@ for file_name in cache_files:
                     # import pdb
                     # pdb.set_trace()
                     euc_reduced = truth_stats['data'][f][t]['num_reduced']
-                    metrics = evaluation(truth_stats['data'][f][t]['duplicate_list'], lsh_res)
+                    truth_res = truth_stats['data'][f][t]['duplicate_list']
+                    keys = set(list(truth_res.keys())).intersection(set(list(lsh_res.keys())))
+                    keys = [k for k in keys if len(truth_res[k]) > 0]
+
+                    truth_res = {k: v for k, v in truth_res.items() if k in keys}
+                    lsh_res = {k: v for k, v in lsh_res.items() if k in keys}
+
+                    metrics = evaluation(truth_res, lsh_res)
                     res[r][k][l][d][f][t] = metrics.tolist() + [euc_reduced, lsh_reduced]
 
     df = pd.DataFrame.from_dict({
