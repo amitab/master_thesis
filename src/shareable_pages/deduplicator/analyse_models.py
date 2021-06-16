@@ -122,12 +122,14 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
         stats['data'] = compare_block_sets(s1, s2, args['sim'], args['fp'])
         pickle.dump(stats, open(split_cache_file, "wb"))
 
+    m1_params = sum([sum([l.get_weights()[i].size for i in range(len(l.weights))]) for l in m1.layers if len(l.weights) > 0])
+    m2_params = sum([sum([l.get_weights()[i].size for i in range(len(l.weights))]) for l in m2.layers if len(l.weights) > 0])
     analysis = stats['data']
     if save_path is not None:
         pbar = tqdm(total=len(args['fp']) * len(args['sim']), desc="Dumping deduplicated model pairs")
         for f in args['fp']:
             for t in args['sim']:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['unpadded_unique_params']} / {m1_params + m2_params})")
                 bak = {}
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
 
@@ -159,7 +161,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
     else:
         for f in args['fp']:
             for t in args['sim']:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Bytes ({analysis[f][t]['bytes_reduced']} / {analysis[f][t]['total_bytes']})")
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['unpadded_unique_params']} / {m1_params + m2_params})")
 
     return stats
 

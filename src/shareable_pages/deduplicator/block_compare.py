@@ -118,12 +118,8 @@ def resolve_unique_mappings(mapping,
         'total_blocks': (len(s1) + len(s2)),
         'num_unique': len(uniques),
         'num_reduced': ((len(s1) + len(s2)) - len(uniques)),
-        'bytes_reduced':
-        ((len(s1) + len(s2)) - len(uniques)) * num_per_block * 8,
-        'total_bytes': (len(s1) + len(s2)) * num_per_block * 8,
-        # 'unique_blocks': uniques,
-        'unpadded_unique_size': unpadded_unique_size * 8,
-        'padded_unique_size': padded_unique_size * 8,
+        'unpadded_unique_params': unpadded_unique_size,
+        'padded_unique_params': padded_unique_size
     }
 
 
@@ -306,6 +302,8 @@ def _comp_db(s1, s2, sim_thresholds, fp_thresholds):
             inf = {k: v.split(",") if v is not None else [] for k, v in inf.items()}
 
             yield f, t, inf
+    cursor.execute("DELETE FROM blocks_comp")
+    connection.commit()
 
 def _comp_mem(s1, s2, sim_thresholds, fp_thresholds):
     info = {f: {t: {} for t in sim_thresholds} for f in fp_thresholds}
