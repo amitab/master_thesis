@@ -11,18 +11,15 @@ from tqdm import tqdm
 def test_deduplicate_models():
     TEST_MODELS_PATH = "test/"
 
-    m1 = tf.keras.models.load_model(TEST_MODELS_PATH + 'based_model-45')
-    m2 = tf.keras.models.load_model(TEST_MODELS_PATH + '30k_normal_added_10k_mix-45')
+    m1 = tf.keras.applications.VGG16()
+    m2 = tf.keras.applications.VGG19()
 
-    m1._name = "based_model"
-    m2._name = "30k_normal_added_10k_mix"
+    fps = [0.01, 0.001]
+    sim = [.7, 0.8, 0.9]
 
-    fps = [0.01]
-    sim = [.7]
-
-    bx = 25
-    by = 25
-    weight_lower_bound = 0.1
+    bx = 1300
+    by = 1300
+    weight_lower_bound = 16
 
     stats = analyse_models_v2_and_dedup(
         m1, m2,
@@ -38,19 +35,19 @@ def test_deduplicate_models():
         TEST_MODELS_PATH
     )
 
-    m1 = tf.keras.models.load_model(TEST_MODELS_PATH + 'based_model-45')
-    m2 = tf.keras.models.load_model(TEST_MODELS_PATH + '30k_normal_added_10k_mix-45')
-    m3 = tf.keras.models.load_model(TEST_MODELS_PATH + 'models/based_model_0.01_0.7_0.1_25_25')
-    m4 = tf.keras.models.load_model(TEST_MODELS_PATH + 'models/30k_normal_added_10k_mix_0.01_0.7_0.1_25_25')
+    om1 = tf.keras.applications.VGG16()
+    om2 = tf.keras.applications.VGG19()
 
-    s1 = split_model(m1, bx, by, weight_lower_bound)
-    s2 = split_model(m2, bx, by, weight_lower_bound)
-    s3 = split_model(m3, bx, by, weight_lower_bound)
-    s4 = split_model(m4, bx, by, weight_lower_bound)
+    os1 = split_model(om1, bx, by, weight_lower_bound)
+    os2 = split_model(om2, bx, by, weight_lower_bound)
 
     for f in fps:
         for t in sim:
-            verify_dedup_blocks(stats[f][t]['mappings'], s3, s4, s1, s2)
+            m1 = tf.keras.models.load_model(f"{TEST_MODELS_PATH}/models/{om1.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
+            m2 = tf.keras.models.load_model(f"{TEST_MODELS_PATH}/models/{om2.name}_{f}_{t}_{weight_lower_bound}_{bx}_{by}")
+            s1 = split_model(m1, bx, by, weight_lower_bound)
+            s2 = split_model(m2, bx, by, weight_lower_bound)
+            verify_dedup_blocks(stats['data'][f][t]['mappings'], s1, s2, os1, os2)
 
 def model_comp_test():
     print("Running model comp test")
@@ -165,5 +162,5 @@ def test_split_even():
 # test_iteration()
 # test_split()
 # test_split_even()
-# test_deduplicate_models()
-model_comp_test()
+test_deduplicate_models()
+# model_comp_test()

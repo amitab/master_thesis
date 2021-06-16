@@ -347,6 +347,13 @@ def verify_dedup_blocks(mapping, mb1, mb2, omb1, omb2):
                 assert np.array_equal(mb1[idx_a][:ax,:bx], mb2[idx_b][:ax,:bx])
 
             assert not np.array_equal(mb1[idx_a], omb1[idx_a])
+        else:
+            a_set, idx_a = m.split('-')
+            if a_set == "s1":
+                idx_a = int(idx_a)
+                assert np.array_equal(mb1[idx_a], omb1[idx_a])
+
+
 
     for m in mapping:
         if mapping[m] is not None and m.startswith('s2'):
@@ -369,3 +376,8 @@ def verify_dedup_blocks(mapping, mb1, mb2, omb1, omb2):
                 assert np.array_equal(mb2[idx_a][:ax,:bx], mb1[idx_b][:ax,:bx])
             
             assert not np.array_equal(mb2[idx_a], omb2[idx_a])
+        else:
+            a_set, idx_a = m.split('-')
+            if a_set == "s2":
+                idx_a = int(idx_a)
+                assert np.array_equal(mb2[idx_a], omb2[idx_a])
