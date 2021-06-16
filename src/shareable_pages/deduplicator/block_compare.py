@@ -112,14 +112,26 @@ def resolve_unique_mappings(mapping,
             padded_unique_size += s2.getBlock(idx).get_padded_size()
             unpadded_unique_size += s2.getBlock(idx).get_unpadded_size()
 
+    removed_params = 0
+    for i in range(len(s1)):
+        name = f"s1-{i}"
+        if name in uniques:
+            continue
+        removed_params += s1.getBlock(idx).get_unpadded_size()
+
+    for i in range(len(s2)):
+        name = f"s2-{i}"
+        if name in uniques:
+            continue
+        removed_params += s2.getBlock(idx).get_unpadded_size()
+
     return {
         'mappings': info,
         'duplicate_list': mapping,
         'total_blocks': (len(s1) + len(s2)),
         'num_unique': len(uniques),
         'num_reduced': ((len(s1) + len(s2)) - len(uniques)),
-        'unpadded_unique_params': unpadded_unique_size,
-        'padded_unique_params': padded_unique_size
+        'removed_params': removed_params,
     }
 
 

@@ -129,7 +129,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
         pbar = tqdm(total=len(args['fp']) * len(args['sim']), desc="Dumping deduplicated model pairs")
         for f in args['fp']:
             for t in args['sim']:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['unpadded_unique_params']} / {m1_params + m2_params})")
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['removed_params']} / {m1_params + m2_params})")
                 bak = {}
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
 
@@ -161,7 +161,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
     else:
         for f in args['fp']:
             for t in args['sim']:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['unpadded_unique_params']} / {m1_params + m2_params})")
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['removed_params']} / {m1_params + m2_params})")
 
     return stats
 
@@ -195,6 +195,8 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
         stats['data'] = compare_l2lsh_block_sets(s1, s2, args['r'], args['k'], args['l'], args['d'], bx, by)
         pickle.dump(stats, open(split_cache_file, "wb"))
 
+    m1_params = sum([sum([l.get_weights()[i].size for i in range(len(l.weights))]) for l in m1.layers if len(l.weights) > 0])
+    m2_params = sum([sum([l.get_weights()[i].size for i in range(len(l.weights))]) for l in m2.layers if len(l.weights) > 0])
     analysis = stats['data']
     if save_path is not None:
         pbar = tqdm(total=len(args['r']) * len(args['k']) * len(args['l']), desc="Dumping deduplicated model pairs")
@@ -203,7 +205,7 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
                 for l in args['l']:
                     for d in range(l * args['d']):
                         mps = analysis[r][k][l][d]
-                        print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
+                        print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Params ({mps['removed_params']} / {m1_params + m2_params})")
 
                         bak = {}
                         d1, d2 = dedup_blocks(mps['mappings'], s1, s2)
@@ -239,7 +241,7 @@ def _analyse_l2lsh(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, args):
                 for l in args['l']:
                     for d in range(l * args['d']):
                         mps = analysis[r][k][l][d]
-                        print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Bytes ({mps['bytes_reduced']} / {mps['total_bytes']})")
+                        print(f"r: {r}, k: {k}, l: {l}, d: {d} -> Blocks ({mps['num_reduced']} / {mps['total_blocks']}) | Params ({mps['removed_params']} / {m1_params + m2_params})")
 
     return stats
 
