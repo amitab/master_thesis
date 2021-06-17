@@ -242,8 +242,20 @@ def compare_lsh_block_sets(s1, s2, diff_thresholds, dim, bits):
     return cons
 
 def compare_block_pairs(b1, b2, fp_thresholds, pbar):
-    diff = np.absolute(b1 - b2)
-    ret = [np.count_nonzero(diff <= f) for f in fp_thresholds]
+    diff = None
+    if b1.is_padded():
+        diff = np.absolute(b1.block[:b1.unpadded_shape[0], :b1.unpadded_shape[1]] - b2.block[:b1.unpadded_shape[0], :b1.unpadded_shape[1]])
+    else:
+        diff = np.absolute(b1.block - b2.block)
+    ret = [[np.count_nonzero(diff <= f) for f in fp_thresholds]]
+
+    if b2.is_padded():
+        diff = np.absolute(b1.block[:b2.unpadded_shape[0], :b2.unpadded_shape[1]] - b2.block[:b2.unpadded_shape[0], :b2.unpadded_shape[1]])
+    else:
+        diff = np.absolute(b1.block - b2.block)
+
+    ret.append([np.count_nonzero(diff <= f) for f in fp_thresholds])    
+
     pbar.update(1)
     return ret
 
@@ -331,34 +343,36 @@ def _comp_mem(s1, s2, sim_thresholds, fp_thresholds):
         for a in data:
             for b in data[a]:
                 for l, f in enumerate(fp_thresholds):
-                    d = data[a][b][l]
+                    da = data[a][b][0][l]
+                    db = data[a][b][1][l]
                     for t in sim_thresholds:
                         if a not in info[f][t]:
                             info[f][t][a] = []
                         if b not in info[f][t]:
                             info[f][t][b] = []
-                        if d / num_per_block >= t:
+                        if da / num_per_block >= t:
                             info[f][t][a].append(b)
+                        if db / num_per_block >= t:
                             info[f][t][b].append(a)
 
     pbar = tqdm(total=(len(s1) * (len(s1) - 1)) / 2, desc="Dedup S1")
     a = { f"s1-{i}":
         { f"s1-{j}":
-            compare_block_pairs(s1[i], s1[j], fp_thresholds, pbar) for j in range(i + 1, len(s1))
+            compare_block_pairs(s1.getBlock(i), s1.getBlock(j), fp_thresholds, pbar) for j in range(i + 1, len(s1))
         } for i in range(len(s1))
     }
     process_op(a)
     pbar = tqdm(total=(len(s2) * (len(s2) - 1)) / 2, desc="Dedup S2")
     b = { f"s2-{i}":
         { f"s2-{j}":
-            compare_block_pairs(s2[i], s2[j], fp_thresholds, pbar) for j in range(i + 1, len(s2))
+            compare_block_pairs(s2.getBlock(i), s2.getBlock(j), fp_thresholds, pbar) for j in range(i + 1, len(s2))
         } for i in range(len(s2))
     }
     process_op(b)
     pbar = tqdm(total=len(s1) * len(s2), desc="Dedup S1 and S2")
     c = { f"s1-{i}":
         { f"s2-{j}":
-            compare_block_pairs(s1[i], s2[j], fp_thresholds, pbar) for j in range(len(s2))
+            compare_block_pairs(s1.getBlock(i), s2.getBlock(j), fp_thresholds, pbar) for j in range(len(s2))
         } for i in range(len(s1))
     }
     process_op(c)

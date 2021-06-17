@@ -30,6 +30,9 @@ class Block(object):
     def get_unpadded_size(self):
         return np.product(self.unpadded_shape)
 
+    def is_padded(self):
+        return self.get_padded_size() != self.get_unpadded_size()
+
 
 class WeightBlocks(object):
     def __init__(self,
