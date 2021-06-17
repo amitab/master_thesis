@@ -129,7 +129,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
         pbar = tqdm(total=len(args['fp']) * len(args['sim']), desc="Dumping deduplicated model pairs")
         for f in args['fp']:
             for t in args['sim']:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['removed_params']} / {m1_params + m2_params})")
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['removed_params']} / {m1_params + m2_params}) | Padded Duplicate Blocks ({analysis[f][t]['num_padded_duplicate_blocks']} / {analysis[f][t]['num_reduced']}) | Padded Unique Blocks ({analysis[f][t]['num_padded_unique_blocks']} / {analysis[f][t]['num_unique']})")
                 bak = {}
                 d1, d2 = dedup_blocks(analysis[f][t]['mappings'], s1, s2)
 
@@ -161,7 +161,7 @@ def _analyse_pairwise(s1, s2, m1, m2, bx, by, save_path, weight_lower_bound, arg
     else:
         for f in args['fp']:
             for t in args['sim']:
-                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['removed_params']} / {m1_params + m2_params})")
+                print(f"Floating point threshold: {f}, Block similarity threshold: {t} -> Blocks ({analysis[f][t]['num_reduced']} / {analysis[f][t]['total_blocks']}) | Params ({analysis[f][t]['removed_params']} / {m1_params + m2_params}) | Padded Duplicate Blocks ({analysis[f][t]['num_padded_duplicate_blocks']} / {analysis[f][t]['num_reduced']}) | Padded Unique Blocks ({analysis[f][t]['num_padded_unique_blocks']} / {analysis[f][t]['num_unique']})")
 
     return stats
 

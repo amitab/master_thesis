@@ -96,34 +96,38 @@ def resolve_unique_mappings(mapping,
                             num_per_block,
                             mode=UNIQUE_MAPPING_MODE.SIMILARITY):
     info, uniques = _resolve_mappings(mapping, mode)
+    num_per_block = s1[0].shape[0] * s1[0].shape[1]
 
-    unpadded_unique_size = 0
-    padded_unique_size = 0
-
+    num_padded_uniques = 0
     for un in uniques:
         if un.startswith('s1'):
             idx = int(un.split("-")[-1])
-            padded_unique_size += s1.getBlock(idx).get_padded_size()
-            unpadded_unique_size += s1.getBlock(idx).get_unpadded_size()
+            if num_per_block > s1.getBlock(idx).get_unpadded_size():
+                num_padded_uniques += 1
 
     for un in uniques:
         if un.startswith('s2'):
             idx = int(un.split("-")[-1])
-            padded_unique_size += s2.getBlock(idx).get_padded_size()
-            unpadded_unique_size += s2.getBlock(idx).get_unpadded_size()
+            if num_per_block > s2.getBlock(idx).get_unpadded_size():
+                num_padded_uniques += 1
 
     removed_params = 0
+    num_padded_duplicates = 0
     for i in range(len(s1)):
         name = f"s1-{i}"
         if name in uniques:
             continue
-        removed_params += s1.getBlock(idx).get_unpadded_size()
+        removed_params += s1.getBlock(i).get_unpadded_size()
+        if num_per_block > s1.getBlock(i).get_unpadded_size():
+            num_padded_duplicates += 1
 
     for i in range(len(s2)):
         name = f"s2-{i}"
         if name in uniques:
             continue
-        removed_params += s2.getBlock(idx).get_unpadded_size()
+        removed_params += s2.getBlock(i).get_unpadded_size()
+        if num_per_block > s2.getBlock(i).get_unpadded_size():
+            num_padded_duplicates += 1
 
     return {
         'mappings': info,
@@ -132,6 +136,8 @@ def resolve_unique_mappings(mapping,
         'num_unique': len(uniques),
         'num_reduced': ((len(s1) + len(s2)) - len(uniques)),
         'removed_params': removed_params,
+        'num_padded_duplicate_blocks': num_padded_duplicates,
+        'num_padded_unique_blocks': num_padded_uniques,
     }
 
 
